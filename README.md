@@ -1,18 +1,18 @@
-# Claude Code Teacher
+# Vibe Code
 
 Real-time code monitoring tool that teaches you while you code. Features three powerful modes switchable with Shift+Tab: Diff Mode with teaching explanations, Rules Mode for CLAUDE.md compliance, and Chat Mode for interactive Q&A.
 
 ## Quick Start
 
 ```bash
-npx claude-code-teacher
+npx vibe-code
 ```
 
 Or install globally:
 
 ```bash
-npm install -g claude-code-teacher
-claude-teacher
+npm install -g vibe-code
+vibe-code
 ```
 
 ## Features
@@ -45,7 +45,7 @@ Switch between modes instantly using **Shift+Tab**:
 ### Start Monitoring
 
 ```bash
-npx claude-code-teacher
+npx vibe-code
 ```
 
 Choose "Start Monitoring" from the menu, and the unified monitor will begin watching your files.
@@ -55,7 +55,7 @@ Choose "Start Monitoring" from the menu, and the unified monitor will begin watc
 Once monitoring starts, press **Shift+Tab** at any time to cycle through the three modes:
 
 ```
-🎓 Claude Code Teacher
+🎓 Vibe Code
 ─────────────────────────────────────────────────
 🔄 Available Modes:
   • Diff - Code changes with teaching explanations
@@ -70,13 +70,13 @@ Press Shift+Tab to switch modes • Ctrl+C to exit
 ### Watch a Specific Directory
 
 ```bash
-npx claude-code-teacher watch /path/to/project
+npx vibe-code watch /path/to/project
 ```
 
 ### Initialize for Claude Code Integration
 
 ```bash
-npx claude-code-teacher init
+npx vibe-code init
 ```
 
 ## Mode Examples
@@ -84,7 +84,7 @@ npx claude-code-teacher init
 ### Diff Mode Example
 
 ```
-🔍 Claude Code Teacher - Diff Mode
+🔍 Vibe Code - Diff Mode
 ══════════════════════════════════════════════════
 📌 UPDATE #1 | 2:45:32 PM
 ══════════════════════════════════════════════════
@@ -111,7 +111,7 @@ making the code more readable than callbacks or promise chains.
 ### Rules Mode Example
 
 ```
-📋 Claude Code Teacher - Rules Mode
+📋 Vibe Code - Rules Mode
 ─────────────────────────────────────────────────
 📝 payment-handler.js 2:46:15 PM
 
@@ -132,7 +132,7 @@ making the code more readable than callbacks or promise chains.
 ### Chat Mode Example
 
 ```
-🎓 Claude Code Teacher - Chat Mode
+🎓 Vibe Code - Chat Mode
 ─────────────────────────────────────────────────
 📁 Recent Changes:
   📝 auth-service.js 2:45:32 PM
@@ -180,8 +180,8 @@ In Chat Mode, you can use these commands:
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/claude-code-teacher.git
-cd claude-code-teacher
+git clone https://github.com/yourusername/vibe-code.git
+cd vibe-code
 
 # Install dependencies
 npm install

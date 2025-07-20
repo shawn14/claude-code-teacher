@@ -1,11 +1,11 @@
 {
-  "name": "claude-code-teacher",
+  "name": "vibe-code",
   "version": "7.0.0",
   "description": "Real-time code monitoring with teaching explanations, CLAUDE.md compliance checking, and interactive chat",
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "claude-teacher": "./bin/claude-teacher.js"
+    "vibe-code": "./bin/vibe-code.js"
   },
   "scripts": {
     "start": "node bin/claude-teacher.js",
@@ -22,7 +22,7 @@
     "ai",
     "code-explanation"
   ],
-  "author": "Claude Code Teacher Team",
+  "author": "Vibe Code Team",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"
@@ -38,10 +38,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/shawn14/claude-code-teacher.git"
+    "url": "https://github.com/shawn14/vibe-code.git"
   },
   "bugs": {
-    "url": "https://github.com/shawn14/claude-code-teacher/issues"
+    "url": "https://github.com/shawn14/vibe-code/issues"
   },
-  "homepage": "https://github.com/shawn14/claude-code-teacher#readme"
+  "homepage": "https://github.com/shawn14/vibe-code#readme"
 }

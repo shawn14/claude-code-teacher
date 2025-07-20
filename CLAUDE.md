@@ -14,22 +14,22 @@ npm run dialogue     # Run demo dialogue
 npm run bridge       # Start communication bridge
 
 # Run without installation
-npx claude-code-teacher
+npx vibe-code
 
 # Watch a directory
-npx claude-code-teacher watch /path/to/project
+npx vibe-code watch /path/to/project
 
 # Initialize in current directory  
-npx claude-code-teacher init
+npx vibe-code init
 ```
 
 ## Architecture Overview
 
-Claude Code Teacher is a modular AI-powered teaching system that monitors code changes and provides real-time explanations. The architecture consists of:
+Vibe Code is a modular AI-powered teaching system that monitors code changes and provides real-time explanations. The architecture consists of:
 
 ### Core Components
 
-1. **CLI Entry Point** (`bin/claude-teacher.js`): Commander-based CLI that provides interactive menus and command routing. Main commands: init, watch, serve, dialogue, companion.
+1. **CLI Entry Point** (`bin/vibe-code.js`): Commander-based CLI that provides interactive menus and command routing. Main commands: init, watch, serve, dialogue, companion.
 
 2. **File Monitoring System** (`src/monitor.js`): Uses chokidar to watch file changes and trigger appropriate actions. Coordinates between different monitor types.
 

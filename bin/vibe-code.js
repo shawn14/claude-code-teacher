@@ -13,15 +13,15 @@ import { UnifiedMonitor } from '../src/unified-monitor.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 program
-  .name('claude-teacher')
+  .name('vibe-code')
   .description('Real-time code monitoring with teaching & analysis')
   .version('7.0.0');
 
 program
   .command('init')
-  .description('Initialize Claude Code Teacher in current directory')
+  .description('Initialize Vibe Code in current directory')
   .action(async () => {
-    const spinner = ora('Initializing Claude Code Teacher...').start();
+    const spinner = ora('Initializing Vibe Code...').start();
     
     try {
       // Configure Claude Code settings
@@ -33,7 +33,7 @@ program
       const server = await startMCPServer();
       spinner.succeed(`MCP server running on port ${server.port}`);
       
-      console.log(chalk.green('\n✓ Claude Code Teacher initialized!'));
+      console.log(chalk.green('\n✓ Vibe Code initialized!'));
       console.log(chalk.gray('The teaching agent is now ready to monitor code changes.'));
       console.log(chalk.blue('\nTo stop the server, press Ctrl+C'));
       
@@ -71,8 +71,8 @@ program
         "mcp-servers": {
           "teacher": {
             "command": "npx",
-            "args": ["claude-code-teacher", "serve"],
-            "name": "Claude Code Teacher"
+            "args": ["vibe-code", "serve"],
+            "name": "Vibe Code"
           }
         }
       }, null, 2)));
@@ -87,7 +87,7 @@ program
 // Interactive mode when no command specified
 if (process.argv.length === 2) {
   (async () => {
-    console.log(chalk.bold.cyan('🎓 Claude Code Teacher'));
+    console.log(chalk.bold.cyan('🎓 Vibe Code'));
     console.log(chalk.gray('Real-time code monitoring with teaching & analysis\n'));
     
     const { action } = await inquirer.prompt([

@@ -49,8 +49,8 @@ async function updateConfig(configPath) {
 
   config['mcp-servers']['teacher'] = {
     command: 'npx',
-    args: ['claude-code-teacher', 'serve'],
-    name: 'Claude Code Teacher',
+    args: ['vibe-code', 'serve'],
+    name: 'Vibe Code',
     description: 'Real-time code explanations and learning assistance'
   };
 
@@ -63,8 +63,8 @@ async function createNewConfig(configPath) {
     'mcp-servers': {
       teacher: {
         command: 'npx',
-        args: ['claude-code-teacher', 'serve'],
-        name: 'Claude Code Teacher',
+        args: ['vibe-code', 'serve'],
+        name: 'Vibe Code',
         description: 'Real-time code explanations and learning assistance'
       }
     }
