@@ -8,7 +8,7 @@
     "vibe-code": "./bin/vibe-code.js"
   },
   "scripts": {
-    "start": "node bin/claude-teacher.js",
+    "start": "node bin/vibe-code.js",
     "serve": "node src/mcp-server.js",
     "dialogue": "node demo-dialogue.js",
     "bridge": "node -e \"import('./src/communication-bridge.js').then(({CommunicationBridge}) => new CommunicationBridge().start())\""

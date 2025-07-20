@@ -18,6 +18,15 @@ export class RulesChecker {
       this.rules = this.getDefaultRules();
     }
   }
+  
+  async checkClaudeMdExists() {
+    try {
+      await readFile(this.claudeMdPath, 'utf-8');
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   parseClaudeMd(content) {
     const rules = {

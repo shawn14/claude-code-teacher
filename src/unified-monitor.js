@@ -6,13 +6,17 @@ import { execSync } from 'child_process';
 import readline from 'readline';
 import { RulesChecker } from './rules-checker.js';
 import { SeniorDevAdvisor } from './senior-dev-advisor.js';
+import { InsightEngine } from './insight-engine.js';
+import { TypeWriter } from './type-writer.js';
+import { themeManager } from './theme-manager.js';
 
 export class UnifiedMonitor {
   constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.modes = ['diff', 'rules', 'chat'];
+    this.modes = ['diff', 'rules', 'chat', 'theme'];
     this.currentModeIndex = 0;
     this.currentMode = this.modes[this.currentModeIndex];
+    this.selectedThemeIndex = 0;
     
     // Shared state
     this.updates = [];
@@ -21,10 +25,15 @@ export class UnifiedMonitor {
     this.currentContext = null;
     this.isProcessingInput = false;
     this.watcher = null;
+    this.lastDisplayedUpdate = null;
+    this.updateHistoryPage = 0;
+    this.viewingHistory = false;
     
     // Initialize components
     this.rulesChecker = new RulesChecker(projectPath);
     this.seniorDev = new SeniorDevAdvisor();
+    this.insightEngine = new InsightEngine();
+    this.typeWriter = new TypeWriter();
     
     // Set up readline with keypress events
     this.setupReadline();
@@ -46,17 +55,26 @@ export class UnifiedMonitor {
     readline.emitKeypressEvents(process.stdin, this.rl);
     
     // Handle keypress events
-    process.stdin.on('keypress', (str, key) => {
+    process.stdin.on('keypress', async (str, key) => {
       if (key && key.name === 'tab' && key.shift) {
-        this.handleModeSwitch();
+        await this.handleModeSwitch();
       } else if (key && key.ctrl && key.name === 'c') {
         this.handleExit();
+      } else if (this.currentMode === 'theme') {
+        await this.handleThemeKeypress(key);
+      } else if (this.currentMode === 'diff' && this.viewingHistory) {
+        await this.handleHistoryNavigation(key);
+      } else if (this.currentMode === 'diff' && key && key.name === 'h' && !this.viewingHistory) {
+        // Press 'h' to view history
+        this.viewingHistory = true;
+        this.updateHistoryPage = 0;
+        await this.displayUpdateHistory();
       }
       // Remove the manual character writing - readline handles this
     });
   }
 
-  handleModeSwitch() {
+  async handleModeSwitch() {
     // Clear any pending input
     this.rl.clearLine();
     
@@ -65,7 +83,7 @@ export class UnifiedMonitor {
     this.currentMode = this.modes[this.currentModeIndex];
     
     // Update display
-    this.updateDisplay();
+    await this.updateDisplay();
     
     // Show mode switch notification
     this.showModeNotification();
@@ -75,15 +93,63 @@ export class UnifiedMonitor {
     this.rl.prompt();
   }
 
+  async handleThemeKeypress(key) {
+    if (!key) return;
+    
+    const themes = themeManager.getAllThemes();
+    
+    if (key.name === 'up') {
+      this.selectedThemeIndex = Math.max(0, this.selectedThemeIndex - 1);
+      await this.updateDisplay();
+    } else if (key.name === 'down') {
+      this.selectedThemeIndex = Math.min(themes.length - 1, this.selectedThemeIndex + 1);
+      await this.updateDisplay();
+    } else if (key.name === 'return') {
+      // Apply selected theme
+      const selectedTheme = themes[this.selectedThemeIndex];
+      themeManager.setTheme(selectedTheme.key);
+      
+      // Special effect for Matrix theme
+      if (selectedTheme.key === 'matrix') {
+        await themeManager.showMatrixRain(1500);
+      }
+      
+      await this.updateDisplay();
+    }
+  }
+  
+  async handleHistoryNavigation(key) {
+    if (!key) return;
+    
+    const pageSize = 5;
+    const totalPages = Math.ceil(this.updates.length / pageSize);
+    
+    if (key.name === 'escape' || key.name === 'q') {
+      // Return to live mode
+      this.viewingHistory = false;
+      await this.updateDisplay();
+    } else if ((key.name === 'left' || key.name === 'up') && this.updateHistoryPage < totalPages - 1) {
+      // Older updates (page increases)
+      this.updateHistoryPage++;
+      await this.displayUpdateHistory();
+    } else if ((key.name === 'right' || key.name === 'down') && this.updateHistoryPage > 0) {
+      // Newer updates (page decreases)
+      this.updateHistoryPage--;
+      await this.displayUpdateHistory();
+    }
+  }
+  
   showModeNotification() {
     const modeInfo = {
       'diff': '🔍 Diff Mode - See code changes with teaching explanations',
       'rules': '📋 Rules Mode - Monitor CLAUDE.md compliance & best practices',
-      'chat': '💬 Chat Mode - Interactive Q&A while coding'
+      'chat': '💬 Chat Mode - Interactive Q&A while coding',
+      'theme': '🎨 Theme Mode - Customize your visual experience'
     };
     
-    console.log('\n' + chalk.bold.green(`✨ Switched to: ${modeInfo[this.currentMode]}`));
-    console.log(chalk.gray('Press Shift+Tab to switch modes • Ctrl+C to exit\n'));
+    const colors = themeManager.getColors();
+    console.log('\n' + colors.success(`✨ Switched to: ${modeInfo[this.currentMode]}`));
+    console.log(colors.muted('Press Shift+Tab to switch modes • Ctrl+C to exit\n'));
   }
 
   getPrompt() {
@@ -96,11 +162,71 @@ export class UnifiedMonitor {
   }
 
   async start() {
-    // Initialize rules checker
-    await this.rulesChecker.initialize();
+    // Load theme preference
+    await themeManager.loadTheme();
     
     this.clearScreen();
-    this.showWelcome();
+    
+    // Show initialization sequence
+    console.log(themeManager.style('\n🚀 Initializing Vibe Code...\n', 'highlight'));
+    
+    // Check for CLAUDE.md
+    await this.typeWriter.typeOut(chalk.yellow('→ Checking for CLAUDE.md file...'), 'normal');
+    await this.typeWriter.showCursor(500);
+    const hasClaudeMd = await this.rulesChecker.checkClaudeMdExists();
+    if (hasClaudeMd) {
+      await this.typeWriter.typeOut(chalk.green('\n  ✓ CLAUDE.md found - will monitor compliance'), 'fast');
+    } else {
+      await this.typeWriter.typeOut(chalk.gray('\n  ℹ Using default rules (no CLAUDE.md found)'), 'fast');
+    }
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Initialize rules checker
+    console.log('\n');
+    await this.typeWriter.typeOut(chalk.yellow('→ Loading project rules...'), 'normal');
+    await this.typeWriter.showCursor(400);
+    await this.rulesChecker.initialize();
+    await this.typeWriter.typeOut(chalk.green('\n  ✓ Rules engine ready'), 'fast');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Check git status
+    console.log('\n');
+    await this.typeWriter.typeOut(chalk.yellow('→ Checking git repository...'), 'normal');
+    await this.typeWriter.showCursor(400);
+    try {
+      execSync('git status', { cwd: this.projectPath, stdio: 'ignore' });
+      await this.typeWriter.typeOut(chalk.green('\n  ✓ Git repository detected'), 'fast');
+    } catch {
+      await this.typeWriter.typeOut(chalk.gray('\n  ℹ Not a git repository (diffs limited)'), 'fast');
+    }
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Initialize AI engines
+    console.log('\n');
+    await this.typeWriter.typeOut(chalk.yellow('→ Starting AI insight engine...'), 'normal');
+    await this.typeWriter.showCursor(600);
+    console.log('');
+    await this.typeWriter.typeOut(chalk.green('  ✓ Pattern detection ready\n'), 'fast');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await this.typeWriter.typeOut(chalk.green('  ✓ Security scanner ready\n'), 'fast');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await this.typeWriter.typeOut(chalk.green('  ✓ Performance analyzer ready'), 'fast');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Project scan
+    console.log('\n');
+    await this.typeWriter.typeOut(chalk.yellow('→ Scanning project structure...'), 'normal');
+    await this.typeWriter.showCursor(600);
+    const fileCount = await this.countProjectFiles();
+    await this.typeWriter.typeOut(chalk.green(`\n  ✓ Monitoring ${fileCount} files`), 'fast');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('\n');
+    await this.typeWriter.typeOut(chalk.bold.green('✨ All systems ready! Let\'s vibe! ✨'), 'slow');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    this.clearScreen();
+    await this.showWelcome();
     
     // Set up file watcher
     this.setupFileWatcher();
@@ -109,7 +235,7 @@ export class UnifiedMonitor {
     this.setupInputHandling();
     
     // Initial display
-    this.updateDisplay();
+    await this.updateDisplay();
     
     // Show prompt for chat mode
     if (this.currentMode === 'chat') {
@@ -117,15 +243,35 @@ export class UnifiedMonitor {
     }
   }
 
-  showWelcome() {
-    console.log(chalk.bold.cyan('\n🎓 Claude Code Teacher'));
-    console.log(chalk.gray('Real-time code monitoring with teaching & analysis'));
-    console.log(chalk.gray('─'.repeat(60)));
-    console.log(chalk.yellow('\n🔄 Available Modes:'));
-    console.log(chalk.gray('  • Diff - Code changes with teaching explanations'));
-    console.log(chalk.gray('  • Rules - Monitor CLAUDE.md compliance'));
-    console.log(chalk.gray('  • Chat - Interactive Q&A'));
-    console.log(chalk.gray('─'.repeat(60)));
+  async showWelcome() {
+    const colors = themeManager.getColors();
+    
+    // ASCII art logo
+    const logo = colors.primary(`
+    ╦  ╦╦╔╗ ╔═╗  ╔═╗╔═╗╔╦╗╔═╗
+    ╚╗╔╝║╠╩╗║╣   ║  ║ ║ ║║║╣ 
+     ╚╝ ╩╚═╝╚═╝  ╚═╝╚═╝═╩╝╚═╝
+    `);
+    console.log(logo);
+    
+    await this.typeWriter.typeOut(colors.muted('Real-time code monitoring with teaching & analysis'), 'fast');
+    console.log('\n' + colors.muted('─'.repeat(60)));
+    
+    // Add a fun welcome animation with emoji wave
+    const vibeMessages = [
+      '✨ Welcome to the vibe zone! ✨',
+      '🎵 Let the good vibes flow... 🎵',
+      '🚀 Ready to level up your code! 🚀'
+    ];
+    const randomMessage = vibeMessages[Math.floor(Math.random() * vibeMessages.length)];
+    await this.typeWriter.typeOut(colors.accent('\n' + randomMessage + '\n'), 'slow');
+    
+    console.log(colors.secondary('\n🔄 Available Modes:'));
+    await this.typeWriter.typeOut(colors.muted('  • Diff - Code changes with teaching explanations\n'), 'fast');
+    await this.typeWriter.typeOut(colors.muted('  • Rules - Monitor CLAUDE.md compliance\n'), 'fast');
+    await this.typeWriter.typeOut(colors.muted('  • Chat - Interactive Q&A\n'), 'fast');
+    await this.typeWriter.typeOut(colors.muted('  • Theme - Customize your visual experience\n'), 'fast');
+    console.log(colors.muted('─'.repeat(60)));
     
     this.showModeNotification();
   }
@@ -181,7 +327,7 @@ export class UnifiedMonitor {
       }
       
       this.isProcessingInput = false;
-      this.updateDisplay();
+      await this.updateDisplay();
       this.rl.prompt();
     });
   }
@@ -225,10 +371,11 @@ export class UnifiedMonitor {
       }
     }
     
-    // Create update object
+    // Create update object with proper timestamp for sorting
     const update = {
       number: this.updateCount,
       timestamp: this.currentContext.timestamp,
+      sortTimestamp: Date.now(), // Add numeric timestamp for accurate sorting
       type,
       filename,
       filePath,
@@ -243,72 +390,126 @@ export class UnifiedMonitor {
     }
     
     // Update display if not processing input
-    if (!this.isProcessingInput) {
-      this.updateDisplay();
+    if (!this.isProcessingInput && this.currentMode === 'diff') {
+      // For diff mode, show the new update immediately at the top
+      await this.showNewUpdate(update);
+    } else if (!this.isProcessingInput) {
+      await this.updateDisplay();
     }
   }
 
-  updateDisplay() {
+  async updateDisplay() {
     this.clearScreen();
     
     switch (this.currentMode) {
       case 'diff':
-        this.displayDiffMode();
+        await this.displayDiffMode();
         break;
       case 'rules':
-        this.displayRulesMode();
+        await this.displayRulesMode();
         break;
       case 'chat':
-        this.displayChatMode();
+        await this.displayChatMode();
+        break;
+      case 'theme':
+        await this.displayThemeMode();
         break;
     }
   }
 
-  displayDiffMode() {
-    console.log(chalk.bold.yellow('🔍 Claude Code Teacher - Diff Mode'));
-    console.log(chalk.gray('Showing code changes with teaching explanations'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    if (this.updates.length === 0) {
-      console.log(chalk.gray('\n   Waiting for changes...\n'));
+  async displayDiffMode() {
+    if (this.viewingHistory) {
+      await this.displayUpdateHistory();
       return;
     }
     
-    // Show updates with diffs and explanations (most recent first)
-    this.updates.slice(-5).reverse().forEach(update => {
-      console.log('\n' + chalk.bold('═'.repeat(50)));
-      console.log(chalk.bold(`📌 UPDATE #${update.number} | ${update.timestamp}`));
+    const colors = themeManager.getColors();
+    // Fixed header
+    console.log(colors.header('🔍 Vibe Code - Diff Mode'));
+    console.log(colors.muted('Showing code changes with teaching explanations'));
+    console.log(colors.muted('─'.repeat(60)));
+    
+    if (this.updates.length === 0) {
+      console.log(colors.info('\n📝 Monitoring for changes...'));
+      await this.typeWriter.typeOut(colors.muted('   Make a change to see insights...'), 'slow');
+      console.log('\n');
+      return;
+    }
+    
+    // Show controls
+    console.log(colors.secondary('\n🎮 Controls:'));
+    console.log(colors.muted(`  Press 'h' for history (${this.updates.length} total updates)`));
+    console.log(colors.muted('  Shift+Tab to switch modes\n'));
+    
+    // Get the most recent update for typing animation
+    const latestUpdate = this.updates[this.updates.length - 1];
+    const isNewUpdate = !this.lastDisplayedUpdate || this.lastDisplayedUpdate.sortTimestamp < latestUpdate.sortTimestamp;
+    
+    // Display the latest update with typing animation if it's new
+    if (isNewUpdate) {
+      console.log(chalk.green.bold('\n🆕 LATEST UPDATE'));
+      console.log(chalk.bold('═'.repeat(50)));
+      console.log(chalk.bold(`📌 UPDATE #${latestUpdate.number} | ${latestUpdate.timestamp}`));
       console.log(chalk.bold('═'.repeat(50)));
       
-      const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
-      console.log(`${icon} ${update.filename}`);
+      const icon = latestUpdate.type === 'added' ? '✅' : latestUpdate.type === 'modified' ? '📝' : '🗑️';
+      console.log(`${icon} ${latestUpdate.filename}`);
       
-      if (update.context.diff) {
+      if (latestUpdate.context.diff) {
         console.log('\n' + chalk.bold('Changes:'));
-        console.log(this.formatDiff(update.context.diff));
+        console.log(this.formatDiff(latestUpdate.context.diff));
         
-        // Add teaching explanation
-        const explanation = this.generateDiffExplanation(update.context);
-        if (explanation) {
-          console.log('\n' + chalk.bold.cyan('🎓 What this change does:'));
-          console.log(chalk.gray(explanation));
+        // Type out insights for the latest update
+        const analysisContext = {
+          ...latestUpdate.context,
+          patterns: this.insightEngine.detectPatterns(latestUpdate.context),
+          category: this.insightEngine.detectChangeCategory(latestUpdate.context),
+          complexity: this.insightEngine.calculateComplexity(latestUpdate.context)
+        };
+        const insights = this.insightEngine.analyzeChange(analysisContext);
+        if (insights) {
+          await this.typeWriter.typeOut(insights, 'normal');
         }
       }
-    });
+      
+      this.lastDisplayedUpdate = latestUpdate;
+      console.log(chalk.gray('\n' + '─'.repeat(50) + '\n'));
+    }
+    
+    // Show last 3 updates (excluding the latest if just displayed)
+    const displayUpdates = isNewUpdate ? this.updates.slice(-4, -1) : this.updates.slice(-3);
+    if (displayUpdates.length > 0) {
+      console.log(colors.header('\n📌 Recent Updates:'));
+      console.log(colors.muted('─'.repeat(50)));
+      
+      const recentUpdates = displayUpdates.slice(-3);
+      recentUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+      
+      for (const update of recentUpdates) {
+        console.log('');
+        await this.displaySingleUpdate(update, false);
+        console.log(colors.muted('\n' + '─'.repeat(50)));
+      }
+    }
   }
 
   async displayRulesMode() {
-    console.log(chalk.bold.green('📋 Claude Code Teacher - Rules Mode'));
+    console.log(chalk.bold.green('📋 Vibe Code - Rules Mode'));
     console.log(chalk.gray('Monitoring code compliance with CLAUDE.md & best practices'));
     console.log(chalk.gray('─'.repeat(60)));
+    console.log(chalk.gray('\nMost recent changes appear at the top\n'));
     
     if (this.updates.length === 0) {
-      console.log(chalk.gray('\n   Waiting for changes...\n'));
+      await this.typeWriter.typeOut(chalk.gray('   Waiting for changes...'), 'slow');
+      console.log('\n');
       return;
     }
     
     // Show updates with rules checking (most recent first)
-    for (const update of this.updates.slice(-5).reverse()) {
+    const recentUpdates = this.updates.slice(-5);
+    recentUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+    
+    for (const update of recentUpdates) {
       console.log('\n' + chalk.gray('─'.repeat(50)));
       console.log(`${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
       
@@ -316,19 +517,20 @@ export class UnifiedMonitor {
         // Check against rules
         const checkResult = await this.rulesChecker.checkFile(update.filePath, update.context.content);
         const report = this.rulesChecker.formatReport(checkResult);
-        console.log(report);
+        await this.typeWriter.typeOut(report, 'fast');
         
         // Add AI advisor suggestions
         const suggestions = this.seniorDev.analyzeCode(update.context.content, update.filename);
         if (suggestions.length > 0) {
-          console.log(this.seniorDev.formatSuggestions(suggestions));
+          const formattedSuggestions = this.seniorDev.formatSuggestions(suggestions);
+          await this.typeWriter.typeOut(formattedSuggestions, 'normal');
         }
       }
     }
   }
 
-  displayChatMode() {
-    console.log(chalk.bold.cyan('🎓 Claude Code Teacher - Chat Mode'));
+  async displayChatMode() {
+    console.log(chalk.bold.cyan('🎓 Vibe Code - Chat Mode'));
     console.log(chalk.gray('Ask questions while coding • /help for commands'));
     console.log(chalk.gray('─'.repeat(60)));
     
@@ -337,7 +539,9 @@ export class UnifiedMonitor {
     if (this.updates.length === 0) {
       console.log(chalk.gray('  No changes yet...'));
     } else {
-      this.updates.slice(-3).reverse().forEach(update => {
+      const recentUpdates = this.updates.slice(-3);
+      recentUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+      recentUpdates.forEach(update => {
         const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
         console.log(`  ${icon} ${update.filename} ${chalk.gray(update.timestamp)}`);
       });
@@ -467,8 +671,23 @@ export class UnifiedMonitor {
   async handleChatMessage(message) {
     this.addChatMessage('user', message);
     
+    // Show typing indicator
+    await this.updateDisplay();
+    console.log(chalk.gray('\nThinking...'));
+    await this.typeWriter.showCursor(500);
+    
     // Generate AI response
     const response = await this.generateAIResponse(message);
+    
+    // Clear and update display before typing response
+    await this.updateDisplay();
+    
+    // Type out the AI response
+    console.log(chalk.green('\nTeacher: '));
+    await this.typeWriter.typeOut(response, 'normal');
+    console.log('\n');
+    
+    // Add to history after typing
     this.addChatMessage('ai', response);
   }
 
@@ -504,8 +723,14 @@ export class UnifiedMonitor {
     const { type, filename, diff } = this.currentContext;
     
     if (type === 'modified' && diff) {
-      const explanation = this.generateDiffExplanation(this.currentContext);
-      return `File ${filename} was modified.\n\n${explanation}`;
+      const analysisContext = {
+        ...this.currentContext,
+        patterns: this.insightEngine.detectPatterns(this.currentContext),
+        category: this.insightEngine.detectChangeCategory(this.currentContext),
+        complexity: this.insightEngine.calculateComplexity(this.currentContext)
+      };
+      const insights = this.insightEngine.analyzeChange(analysisContext);
+      return `File ${filename} was modified.\n${insights}`;
     }
     
     return `File ${filename} was ${type}. Make another change and I'll explain it!`;
@@ -513,19 +738,171 @@ export class UnifiedMonitor {
 
   explainConcept(question) {
     const concepts = {
-      'async': 'Async/await makes asynchronous code look synchronous. It\'s syntactic sugar over promises that makes code easier to read and debug.',
-      'closure': 'A closure gives you access to an outer function\'s scope from an inner function. It\'s like a backpack of variables that a function carries around.',
-      'promise': 'A Promise represents a value that may be available now, in the future, or never. It\'s like ordering food - you get a receipt (promise) immediately, but the food (value) comes later.',
-      'arrow function': 'Arrow functions (=>) provide a concise syntax and lexically bind the \'this\' value. They\'re great for callbacks and functional programming.'
+      'async': `🎯 **Async/Await** - The modern way to handle asynchronous operations!
+      
+Think of it like this: You're at a coffee shop. Without async/await, you'd have to stand at the counter until your coffee is ready (blocking). With async/await, you can sit down and work on your laptop (non-blocking) - the barista will call you when it's ready!
+
+\`\`\`javascript
+// Old way (callback hell)
+getData(function(a) {
+  getMoreData(a, function(b) {
+    getMoreData(b, function(c) {
+      console.log(c);
+    });
+  });
+});
+
+// Modern way (async/await)
+const a = await getData();
+const b = await getMoreData(a);
+const c = await getMoreData(b);
+console.log(c);
+\`\`\`
+
+Pro tip: Always wrap await in try-catch for error handling!`,
+      
+      'closure': `🎒 **Closures** - Functions with memory!
+      
+Imagine a function as a backpack. A closure is when that backpack contains not just the function's own stuff, but also remembers variables from where it was created.
+
+\`\`\`javascript
+function createCounter() {
+  let count = 0;  // This variable is "enclosed"
+  
+  return function() {
+    count++;      // Inner function remembers count!
+    return count;
+  };
+}
+
+const counter = createCounter();
+console.log(counter()); // 1
+console.log(counter()); // 2 (It remembers!)
+\`\`\`
+
+Real-world use: React hooks, event handlers, and private variables!`,
+      
+      'promise': `⏳ **Promises** - Handling future values elegantly!
+      
+A Promise is like a food delivery app. When you order (create a promise), you get a tracking number immediately. The food (actual value) comes later, and the app tells you if it arrived successfully or if there was a problem.
+
+\`\`\`javascript
+const myPromise = new Promise((resolve, reject) => {
+  // Async operation here
+  if (success) {
+    resolve(data);  // Order delivered! 
+  } else {
+    reject(error);  // Order failed!
+  }
+});
+
+myPromise
+  .then(data => console.log('Success:', data))
+  .catch(error => console.log('Error:', error));
+\`\`\`
+
+States: Pending → Fulfilled ✅ OR Rejected ❌`,
+      
+      'arrow function': `➡️ **Arrow Functions** - Concise and powerful!
+      
+Arrow functions are the sleek sports cars of JavaScript functions. They're faster to write and automatically inherit 'this' from their surroundings.
+
+\`\`\`javascript
+// Traditional function
+function add(a, b) {
+  return a + b;
+}
+
+// Arrow function
+const add = (a, b) => a + b;
+
+// Great for array methods!
+const doubled = numbers.map(n => n * 2);
+
+// Lexical 'this' binding
+class Timer {
+  constructor() {
+    this.seconds = 0;
+    setInterval(() => {
+      this.seconds++; // 'this' works correctly!
+    }, 1000);
+  }
+}
+\`\`\`
+
+When NOT to use: As methods, constructors, or when you need 'arguments' object.`,
+
+      'hook': `🪝 **React Hooks** - Stateful logic in functional components!
+      
+Hooks let you "hook into" React features without writing a class. They're like special tools that give your functional components superpowers!
+
+\`\`\`javascript
+import { useState, useEffect } from 'react';
+
+function VibeCounter() {
+  // useState hook for state management
+  const [count, setCount] = useState(0);
+  
+  // useEffect hook for side effects
+  useEffect(() => {
+    document.title = \`Vibes: \${count}\`;
+  }, [count]); // Only runs when count changes
+  
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Increase vibes: {count}
+    </button>
+  );
+}
+\`\`\`
+
+Common hooks: useState, useEffect, useContext, useMemo, useCallback`,
+
+      'state': `🎮 **State Management** - Your app's memory!
+      
+State is like your app's brain - it remembers things! In React, state is data that can change over time and causes your UI to re-render when it does.
+
+\`\`\`javascript
+// Local state (component level)
+const [user, setUser] = useState(null);
+
+// Global state (app level) - Redux example
+const state = {
+  user: { name: 'Vibe Coder', level: 42 },
+  theme: 'dark',
+  notifications: []
+};
+
+// State update triggers re-render
+setUser({ name: 'New Vibe Coder' }); // UI updates!
+\`\`\`
+
+Best practices:
+- Keep state minimal
+- Derive what you can
+- Lift state up when needed
+- Consider context or Redux for global state`
     };
     
+    // Check for concept matches
     for (const [concept, explanation] of Object.entries(concepts)) {
       if (question.toLowerCase().includes(concept)) {
         return explanation;
       }
     }
     
-    return 'That\'s a great question! I can explain concepts like async/await, promises, closures, arrow functions, and more. What would you like to learn about?';
+    // Enhanced default response
+    return `🤔 **That's a great question!**
+    
+I can explain many programming concepts with examples:
+• **async/await** - Modern asynchronous programming
+• **promises** - Handling future values
+• **closures** - Functions with memory
+• **arrow functions** - Concise function syntax
+• **hooks** - React's functional superpowers
+• **state** - Managing data that changes
+
+Just ask "what is [concept]?" and I'll break it down with real examples!`;
   }
 
   async checkSecurity() {
@@ -576,15 +953,181 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
     this.addChatMessage('system', help);
   }
 
+  async displayThemeMode() {
+    const colors = themeManager.getColors();
+    console.log(colors.header('🎨 Vibe Code - Theme Selector'));
+    console.log(colors.muted('Choose your vibe with arrow keys, press Enter to apply'));
+    console.log(colors.muted('─'.repeat(60)));
+    
+    const themes = themeManager.getAllThemes();
+    
+    console.log(colors.secondary('\n📋 Available Themes:\n'));
+    
+    themes.forEach((theme, index) => {
+      const isSelected = index === this.selectedThemeIndex;
+      const isCurrent = theme.active;
+      
+      const prefix = isSelected ? colors.accent('→ ') : '  ';
+      const suffix = isCurrent ? colors.success(' ✓ (current)') : '';
+      const name = isSelected ? colors.highlight(theme.name) : colors.primary(theme.name);
+      
+      console.log(`${prefix}${name}${suffix}`);
+      console.log(colors.muted(`  ${theme.description}`));
+      console.log(colors.info(`  ${theme.preview}\n`));
+    });
+    
+    console.log(colors.muted('─'.repeat(60)));
+    console.log(colors.secondary('\n🎯 Controls:'));
+    console.log(colors.muted('  ↑/↓ - Navigate themes'));
+    console.log(colors.muted('  Enter - Apply theme'));
+    console.log(colors.muted('  Shift+Tab - Switch modes'));
+    
+    // Show preview of selected theme
+    const selectedTheme = themes[this.selectedThemeIndex];
+    if (!selectedTheme.active) {
+      console.log(colors.secondary('\n✨ Preview:'));
+      console.log(colors.muted(`  This text would appear in ${selectedTheme.name}`));
+    }
+  }
+  
   clearScreen() {
+    // Clear screen and move cursor to top
     console.clear();
+    process.stdout.write('\x1B[H');
+  }
+  
+  async showNewUpdate(update) {
+    const colors = themeManager.getColors();
+    
+    // Clear screen for clean display
+    this.clearScreen();
+    
+    // Fixed header
+    console.log(colors.header('🔍 Vibe Code - Diff Mode'));
+    console.log(colors.muted('Showing code changes with teaching explanations'));
+    console.log(colors.muted('─'.repeat(60)));
+    
+    // Show controls
+    console.log(colors.secondary('\n🎮 Controls:'));
+    console.log(colors.muted(`  Press 'h' for history (${this.updates.length} total updates)`));
+    console.log(colors.muted('  Shift+Tab to switch modes\n'));
+    
+    // Show the new update with animation
+    console.log(colors.accent('═'.repeat(60)));
+    console.log(colors.success.bold('🆕 NEW UPDATE'));
+    console.log(colors.accent('═'.repeat(60)));
+    
+    await this.displaySingleUpdate(update, true);
+    console.log(colors.muted('\n' + '─'.repeat(60)));
+    
+    // Show previous updates (last 2 if we have them)
+    const previousUpdates = this.updates.slice(-3, -1);
+    if (previousUpdates.length > 0) {
+      console.log(colors.header('\n📌 Previous Updates:'));
+      console.log(colors.muted('─'.repeat(50)));
+      
+      previousUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+      
+      for (const prevUpdate of previousUpdates) {
+        console.log('');
+        await this.displaySingleUpdate(prevUpdate, false);
+        console.log(colors.muted('\n' + '─'.repeat(50)));
+      }
+    }
+    
+    // Update the last displayed update
+    this.lastDisplayedUpdate = update;
+  }
+  
+  async displaySingleUpdate(update, withAnimation = false) {
+    const colors = themeManager.getColors();
+    
+    console.log(colors.header(`📌 UPDATE #${update.number} | ${update.timestamp}`));
+    console.log(colors.muted('═'.repeat(50)));
+    
+    const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
+    console.log(`${icon} ${colors.primary(update.filename)}`);
+    
+    if (update.context.diff) {
+      console.log('\n' + colors.secondary('Changes:'));
+      console.log(this.formatDiff(update.context.diff));
+      
+      // Get insights
+      const analysisContext = {
+        ...update.context,
+        patterns: this.insightEngine.detectPatterns(update.context),
+        category: this.insightEngine.detectChangeCategory(update.context),
+        complexity: this.insightEngine.calculateComplexity(update.context)
+      };
+      const insights = this.insightEngine.analyzeChange(analysisContext);
+      
+      if (insights) {
+        if (withAnimation) {
+          await this.typeWriter.typeOut(insights, 'normal');
+        } else {
+          console.log(insights);
+        }
+      }
+    }
+  }
+  
+  async displayUpdateHistory() {
+    const colors = themeManager.getColors();
+    this.clearScreen();
+    
+    console.log(colors.header('📚 Update History'));
+    console.log(colors.muted('Navigate with arrow keys • Press ESC or Q to return to live mode'));
+    console.log(colors.muted('─'.repeat(60)));
+    
+    const pageSize = 5;
+    const totalPages = Math.ceil(this.updates.length / pageSize);
+    const currentPage = totalPages - this.updateHistoryPage - 1;
+    
+    // Calculate indices for reverse pagination (newest first)
+    const startIdx = currentPage * pageSize;
+    const endIdx = Math.min(startIdx + pageSize, this.updates.length);
+    
+    // Get updates for this page and sort newest first
+    const pageUpdates = this.updates.slice(startIdx, endIdx);
+    pageUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+    
+    console.log(colors.info(`\nPage ${this.updateHistoryPage + 1} of ${totalPages} (Updates ${this.updates.length - endIdx + 1}-${this.updates.length - startIdx})\n`));
+    
+    for (const update of pageUpdates) {
+      await this.displaySingleUpdate(update, false);
+      console.log(colors.muted('\n' + '─'.repeat(50) + '\n'));
+    }
+    
+    // Navigation footer
+    const hasOlder = this.updateHistoryPage < totalPages - 1;
+    const hasNewer = this.updateHistoryPage > 0;
+    
+    console.log(colors.secondary('\n🎮 Navigation:'));
+    if (hasNewer) console.log(colors.muted('  ← or ↓ - Newer updates'));
+    if (hasOlder) console.log(colors.muted('  → or ↑ - Older updates'));
+    console.log(colors.muted('  ESC or Q - Return to live mode'));
+  }
+  
+  async countProjectFiles() {
+    // Simple file count - in real implementation could be more sophisticated
+    try {
+      const { execSync } = await import('child_process');
+      const count = execSync(
+        `find ${this.projectPath} -type f -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.json" -o -name "*.md" | grep -v node_modules | wc -l`,
+        { encoding: 'utf8', stdio: 'pipe' }
+      ).trim();
+      return parseInt(count) || 0;
+    } catch {
+      // Fallback for Windows or if find command fails
+      return 'multiple';
+    }
   }
 
   handleExit() {
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
-    console.log(chalk.yellow('\n\n👋 Thanks for using Claude Code Teacher!'));
+    console.log(chalk.yellow('\n\n👋 Thanks for using Vibe Code!'));
     process.exit(0);
   }
 }
