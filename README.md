@@ -19,7 +19,13 @@ claude-teacher
 
 ## Features
 
-- ✨ **NEW! Unified Monitor with Mode Switching** - Press Shift+Tab to instantly switch between Chat, Diff, Clean, and Enhanced modes!
+- 🎓 **NEW! Complete Companion Mode** - Your ultimate developer companion with entertainment, productivity, wellness, and learning features!
+- 🎮 **Entertainment Hub** - Coding trivia, developer jokes, code golf challenges, fun facts, and ASCII animations
+- 🍅 **Pomodoro Timer** - Built-in productivity timer with focus mode and daily goals
+- 💪 **Wellness Companion** - Health reminders, exercises, mood tracking, and ergonomic tips
+- 🦆 **Rubber Duck Debugging** - Multiple duck personalities to help you solve problems by talking through them
+- 🏆 **Gamification** - XP system, achievements, daily streaks, and level progression
+- ✨ **Unified Monitor with Mode Switching** - Press Shift+Tab to instantly switch between Chat, Diff, Clean, and Enhanced modes!
 - 💬 **Interactive Chat Mode** - Chat with your AI teacher while coding! Ask questions, get explanations, and learn in real-time
 - 🧙 **AI-Powered Senior Dev Advisor** - Catches security vulnerabilities, performance issues, and suggests best practices
 - 🆕 **Diff Monitor** - Shows exact code changes with git diff integration
@@ -97,7 +103,69 @@ Understand how changes fit into the overall project structure.
 ### Debug Mode
 Get debugging tips and common issue checklists.
 
-## Unified Monitor with Mode Switching (NEW!)
+## Complete Companion Mode (NEW!)
+
+The new Companion Mode transforms Claude Code Teacher into your ultimate developer companion - mentor, entertainer, wellness coach, and productivity partner all in one!
+
+```
+╔═══════════════════════════════════════════════════╗
+║      🎓 Claude Code Teacher - Companion Mode       ║
+║         Your AI Coding Companion & Friend          ║
+╚═══════════════════════════════════════════════════╝
+
+Good afternoon, Developer! 👋
+Level 12 • 850 XP • 7 day streak
+
+📆 Daily Tip: Regular breaks increase productivity by 40%!
+
+🎯 What would you like to do?
+
+1. 🍅 Pomodoro Timer
+2. 🎮 Entertainment
+3. 🦆 Rubber Duck Debugging
+4. 💪 Wellness Check
+5. 📊 Daily Standup
+6. 🎯 Focus Mode
+7. 📈 View Stats
+8. ⚙️  Settings
+9. 🚺 Exit
+
+Choice (1-9): 
+```
+
+### Entertainment Features:
+- **🎯 Coding Trivia**: Test your programming knowledge with fun questions
+- **😄 Developer Jokes**: Curated programming humor to brighten your day
+- **⛳ Code Golf**: Mini challenges to write the shortest code possible
+- **🤓 Fun Facts**: Interesting programming history and trivia
+- **🎨 ASCII Animations**: Fun visual elements during breaks
+
+### Productivity Suite:
+- **🍅 Pomodoro Timer**: 25-minute focus sessions with smart break reminders
+- **🎯 Focus Mode**: Distraction-free environment with helpful tips
+- **📊 Daily Standup**: Track what you did, doing, and blockers
+- **🔥 Streak Tracking**: Maintain daily coding momentum
+
+### Wellness Companion:
+- **💧 Hydration Reminders**: Stay healthy with regular water break alerts
+- **👀 Eye Care**: 20-20-20 rule reminders to prevent strain
+- **🏃 Exercise Breaks**: Desk exercises and stretches for developers
+- **🧘 Mental Health**: Mood tracking and stress relief techniques
+- **🤗 Posture Checks**: Ergonomic reminders for better health
+
+### Rubber Duck Debugging:
+- **🦆 Multiple Personalities**: Classic, Detective, Zen, Pirate, or Scientist ducks
+- **💬 Smart Responses**: Context-aware replies based on your problem description
+- **💡 Breakthrough Detection**: Recognizes when you've solved the problem
+- **📈 Session Analytics**: Track your debugging effectiveness
+
+### Gamification:
+- **🏆 XP System**: Earn experience points for productive activities
+- **🏅 Achievements**: Unlock badges for milestones and goals
+- **⬆️ Level Progression**: Watch your developer level grow over time
+- **🔥 Daily Streaks**: Maintain momentum with streak tracking
+
+## Unified Monitor with Mode Switching
 
 The new unified monitor lets you switch between different monitoring modes on the fly using **Shift+Tab**:
 

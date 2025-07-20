@@ -116,7 +116,8 @@ if (process.argv.length === 2) {
         name: 'mode',
         message: 'How would you like to use the teacher?',
         choices: [
-          { name: '✨ Unified Monitor (NEW! Switch modes with Shift+Tab)', value: 'unified' },
+          { name: '🎓 Companion Mode (NEW! Complete developer companion)', value: 'companion' },
+          { name: '✨ Unified Monitor (Switch modes with Shift+Tab)', value: 'unified' },
           { name: '💬 Interactive Chat (Chat with AI while coding)', value: 'chat' },
           { name: '🆕 Diff Monitor (Shows exact code changes)', value: 'diff' },
           { name: 'Clean Monitor (Shows recent updates only)', value: 'clean' },
@@ -133,6 +134,12 @@ if (process.argv.length === 2) {
     switch (mode) {
       case 'configure':
         program.parse(['', '', 'init']);
+        break;
+      case 'companion':
+        // Use the complete companion mode
+        const { CompanionMode } = await import('../src/companion-mode.js');
+        const companion = new CompanionMode(process.cwd());
+        await companion.start();
         break;
       case 'unified':
         // Use the unified monitoring system with mode switching

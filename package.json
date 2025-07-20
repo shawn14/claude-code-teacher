@@ -1,6 +1,6 @@
 {
   "name": "claude-code-teacher",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "AI-powered teaching system with senior dev advisor that monitors code changes and provides security, performance, and best practice insights",
   "type": "module",
   "main": "src/index.js",

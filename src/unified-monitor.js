@@ -12,7 +12,7 @@ import { DiffMonitor } from './diff-monitor.js';
 export class UnifiedMonitor {
   constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.modes = ['chat', 'diff', 'clean', 'enhanced'];
+    this.modes = ['chat', 'diff', 'clean', 'enhanced', 'companion'];
     this.currentModeIndex = 0;
     this.currentMode = this.modes[this.currentModeIndex];
     
@@ -84,7 +84,8 @@ export class UnifiedMonitor {
       'chat': '💬 Interactive Chat Mode - Ask questions while coding',
       'diff': '🔍 Diff Mode - See exact code changes',
       'clean': '📝 Clean Mode - Recent updates with explanations',
-      'enhanced': '🚀 Enhanced Mode - Monitor everything'
+      'enhanced': '🚀 Enhanced Mode - Monitor everything',
+      'companion': '🎓 Companion Mode - Your complete coding companion'
     };
     
     console.log('\n' + chalk.bold.green(`✨ Switched to: ${modeInfo[this.currentMode]}`));
@@ -96,7 +97,8 @@ export class UnifiedMonitor {
       'chat': chalk.cyan('💬 '),
       'diff': chalk.yellow('🔍 '),
       'clean': chalk.green('📝 '),
-      'enhanced': chalk.magenta('🚀 ')
+      'enhanced': chalk.magenta('🚀 '),
+      'companion': chalk.blue('🎓 ')
     };
     return prompts[this.currentMode] || '> ';
   }
@@ -129,6 +131,7 @@ export class UnifiedMonitor {
     console.log(chalk.gray('  • Diff - See exact code changes'));
     console.log(chalk.gray('  • Clean - Recent updates with AI analysis'));
     console.log(chalk.gray('  • Enhanced - Monitor everything'));
+    console.log(chalk.gray('  • Companion - Full productivity suite'));
     console.log(chalk.gray('─'.repeat(60)));
     
     this.showModeNotification();
@@ -273,6 +276,9 @@ export class UnifiedMonitor {
       case 'enhanced':
         this.displayEnhancedMode();
         break;
+      case 'companion':
+        this.displayCompanionMode();
+        break;
     }
   }
 
@@ -390,6 +396,45 @@ export class UnifiedMonitor {
       console.log(`  File: ${this.currentContext.filename}`);
       console.log(`  Lines: ${this.currentContext.content.split('\n').length}`);
     }
+  }
+
+  displayCompanionMode() {
+    console.log(chalk.bold.blue('🎓 Claude Code Teacher - Companion Mode'));
+    console.log(chalk.gray('Shift+Tab to switch modes • Your complete coding companion'));
+    console.log(chalk.gray('─'.repeat(60)));
+    
+    // Show companion dashboard
+    console.log(chalk.yellow('\n📈 Dashboard:'));
+    console.log(`  🔥 Productivity: 4/4 pomodoros today`);
+    console.log(`  💪 Wellness: 85/100 score`);
+    console.log(`  🎆 Streak: 7 days`);
+    console.log(`  ⬆️ Level: 12 (850/1200 XP)`);
+    
+    console.log(chalk.yellow('\n🎯 Quick Actions:'));
+    console.log(chalk.cyan('  P - Start Pomodoro • W - Wellness Check • D - Debug with Duck'));
+    console.log(chalk.cyan('  E - Entertainment • F - Focus Mode • S - Stats'));
+    
+    // Show recent activity if any
+    if (this.updates.length > 0) {
+      console.log(chalk.yellow('\n📁 Recent Code Activity:'));
+      this.updates.slice(-3).forEach(update => {
+        console.log(`  ${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
+      });
+    }
+    
+    // Daily tip
+    const tips = [
+      "💡 Tip: Regular breaks increase productivity by 40%!",
+      "🧠 Tip: Your brain can only focus for 90-120 minutes at a time.",
+      "💧 Tip: Staying hydrated improves cognitive function by 14%.",
+      "🌱 Tip: Indoor plants can increase productivity by up to 15%."
+    ];
+    
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+    console.log(chalk.gray('\n' + tip));
+    
+    console.log(chalk.gray('\n─'.repeat(60)));
+    console.log(chalk.gray('Type commands above or press Enter for full companion menu'));
   }
 
   getUpdateIcon(type) {
