@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
+import readline from 'readline';
 import { SeniorDevAdvisor } from './senior-dev-advisor.js';
 import { AIPoweredAdvisor } from './ai-powered-advisor.js';
 
@@ -14,6 +15,8 @@ export class DiffMonitor {
     this.updateCount = 0;
     this.seniorDev = new SeniorDevAdvisor();
     this.aiAdvisor = new AIPoweredAdvisor();
+    this.chatEnabled = options.chatEnabled || false;
+    this.currentContext = null;
   }
 
   async start() {
@@ -226,5 +229,9 @@ export class DiffMonitor {
 
     console.log('\n' + chalk.gray('─'.repeat(50)));
     console.log(chalk.gray('Press Ctrl+C to exit'));
+    
+    if (this.chatEnabled) {
+      console.log(chalk.cyan('\n💬 Quick chat: Press "?" to ask about the last change'));
+    }
   }
 }

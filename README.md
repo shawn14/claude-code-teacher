@@ -19,7 +19,10 @@ claude-teacher
 
 ## Features
 
+- ✨ **NEW! Unified Monitor with Mode Switching** - Press Shift+Tab to instantly switch between Chat, Diff, Clean, and Enhanced modes!
+- 💬 **Interactive Chat Mode** - Chat with your AI teacher while coding! Ask questions, get explanations, and learn in real-time
 - 🧙 **AI-Powered Senior Dev Advisor** - Catches security vulnerabilities, performance issues, and suggests best practices
+- 🆕 **Diff Monitor** - Shows exact code changes with git diff integration
 - 👀 **Clean Monitor** - Shows only recent updates with code snippets and detailed explanations
 - 🛡️ **Security Analysis** - Detects SQL injection, hardcoded secrets, XSS vulnerabilities
 - ⚡ **Performance Insights** - Identifies N+1 queries, synchronous operations, missing indexes
@@ -93,6 +96,101 @@ Understand how changes fit into the overall project structure.
 
 ### Debug Mode
 Get debugging tips and common issue checklists.
+
+## Unified Monitor with Mode Switching (NEW!)
+
+The new unified monitor lets you switch between different monitoring modes on the fly using **Shift+Tab**:
+
+```
+🎓 Claude Code Teacher - Unified Monitor
+Switch between modes with Shift+Tab
+────────────────────────────────────────────────────────────
+
+🔄 Available Modes:
+  • Chat - Interactive Q&A while coding
+  • Diff - See exact code changes
+  • Clean - Recent updates with AI analysis
+  • Enhanced - Monitor everything
+────────────────────────────────────────────────────────────
+
+✨ Switched to: 💬 Interactive Chat Mode - Ask questions while coding
+Press Shift+Tab to switch modes • Ctrl+C to exit
+```
+
+### Mode Switching:
+- **Shift+Tab** - Cycle through all monitoring modes instantly
+- **No restart needed** - Switch modes while keeping your file watch active
+- **Context preserved** - Your chat history and file updates stay available
+
+### Available Modes:
+1. **Chat Mode** (💬) - Interactive Q&A with your AI teacher
+2. **Diff Mode** (🔍) - See exact git diffs for every change
+3. **Clean Mode** (📝) - Focused view with AI analysis
+4. **Enhanced Mode** (🚀) - Comprehensive monitoring of everything
+
+## Interactive Chat Mode
+
+The new interactive chat mode lets you have real-time conversations with your AI teacher while monitoring code changes:
+
+```
+🎓 Claude Code Teacher - Interactive Chat
+────────────────────────────────────────────────────────────
+
+📁 Recent File Changes:
+  📝 Modified: auth-service.js 2:45:32 PM
+  ✅ Created: auth-service.test.js 2:46:15 PM
+
+💬 Chat:
+────────────────────────────────────────────────────────────
+
+You (2:46:20 PM): What changed in the auth service?
+
+Teacher: The last change was in auth-service.js:
+
+Here's what changed:
+```diff
+@@ -15,6 +15,8 @@
+       const existingUser = await this.userRepository.findByEmail(userData.email);
+       if (existingUser) {
+         throw new ValidationError('User already exists');
+       }
++      
++      // Add rate limiting check
++      await this.checkRateLimit(userData.email);
+```
+
+This change added rate limiting to prevent brute force attacks. It's a security best practice!
+
+You (2:46:45 PM): How does rate limiting work?
+
+Teacher: Rate limiting is like a bouncer at a club - it controls how many requests someone can make in a given time period. Here's how it works:
+
+1. Track requests per user/IP
+2. Set a limit (e.g., 5 login attempts per minute)
+3. Block or delay requests that exceed the limit
+4. Reset the count after the time window
+
+This prevents attackers from trying thousands of passwords quickly!
+
+────────────────────────────────────────────────────────────
+Type your question or /help for commands
+💬 
+```
+
+### Chat Commands:
+- `/help` - Show available commands
+- `/clear` - Clear chat history
+- `/save` - Save conversation to file
+- `/context` - Show current file context
+- `/quit` - Exit the program
+
+### You can ask about:
+- Recent code changes: "What changed in the last update?"
+- Code explanations: "Explain this function"
+- Best practices: "How can I improve this code?"
+- Concepts: "What is async/await?"
+- Security: "Are there any security issues?"
+- Performance: "How can I optimize this?"
 
 ## Example Output
 

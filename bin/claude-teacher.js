@@ -116,6 +116,8 @@ if (process.argv.length === 2) {
         name: 'mode',
         message: 'How would you like to use the teacher?',
         choices: [
+          { name: '✨ Unified Monitor (NEW! Switch modes with Shift+Tab)', value: 'unified' },
+          { name: '💬 Interactive Chat (Chat with AI while coding)', value: 'chat' },
           { name: '🆕 Diff Monitor (Shows exact code changes)', value: 'diff' },
           { name: 'Clean Monitor (Shows recent updates only)', value: 'clean' },
           { name: 'Coding Mentor (friendly explanations)', value: 'realtime' },
@@ -131,6 +133,18 @@ if (process.argv.length === 2) {
     switch (mode) {
       case 'configure':
         program.parse(['', '', 'init']);
+        break;
+      case 'unified':
+        // Use the unified monitoring system with mode switching
+        const { UnifiedMonitor } = await import('../src/unified-monitor.js');
+        const unifiedMonitor = new UnifiedMonitor(process.cwd());
+        await unifiedMonitor.start();
+        break;
+      case 'chat':
+        // Use the interactive chat monitoring system
+        const { InteractiveChatMonitor } = await import('../src/interactive-chat-monitor.js');
+        const chatMonitor = new InteractiveChatMonitor(process.cwd());
+        await chatMonitor.start();
         break;
       case 'diff':
         // Use the diff monitoring system
