@@ -1,18 +1,16 @@
 import { watch } from 'chokidar';
 import chalk from 'chalk';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
 import readline from 'readline';
+import { RulesChecker } from './rules-checker.js';
 import { SeniorDevAdvisor } from './senior-dev-advisor.js';
-import { AIPoweredAdvisor } from './ai-powered-advisor.js';
-import { CleanMonitor } from './clean-monitor.js';
-import { DiffMonitor } from './diff-monitor.js';
 
 export class UnifiedMonitor {
   constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.modes = ['chat', 'diff', 'clean', 'enhanced', 'companion'];
+    this.modes = ['diff', 'rules', 'chat'];
     this.currentModeIndex = 0;
     this.currentMode = this.modes[this.currentModeIndex];
     
@@ -24,9 +22,9 @@ export class UnifiedMonitor {
     this.isProcessingInput = false;
     this.watcher = null;
     
-    // AI advisors
+    // Initialize components
+    this.rulesChecker = new RulesChecker(projectPath);
     this.seniorDev = new SeniorDevAdvisor();
-    this.aiAdvisor = new AIPoweredAdvisor();
     
     // Set up readline with keypress events
     this.setupReadline();
@@ -81,11 +79,9 @@ export class UnifiedMonitor {
 
   showModeNotification() {
     const modeInfo = {
-      'chat': '💬 Interactive Chat Mode - Ask questions while coding',
-      'diff': '🔍 Diff Mode - See exact code changes',
-      'clean': '📝 Clean Mode - Recent updates with explanations',
-      'enhanced': '🚀 Enhanced Mode - Monitor everything',
-      'companion': '🎓 Companion Mode - Your complete coding companion'
+      'diff': '🔍 Diff Mode - See code changes with teaching explanations',
+      'rules': '📋 Rules Mode - Monitor CLAUDE.md compliance & best practices',
+      'chat': '💬 Chat Mode - Interactive Q&A while coding'
     };
     
     console.log('\n' + chalk.bold.green(`✨ Switched to: ${modeInfo[this.currentMode]}`));
@@ -94,16 +90,17 @@ export class UnifiedMonitor {
 
   getPrompt() {
     const prompts = {
-      'chat': chalk.cyan('💬 '),
-      'diff': chalk.yellow('🔍 '),
-      'clean': chalk.green('📝 '),
-      'enhanced': chalk.magenta('🚀 '),
-      'companion': chalk.blue('🎓 ')
+      'diff': '',
+      'rules': '',
+      'chat': chalk.cyan('💬 ')
     };
     return prompts[this.currentMode] || '> ';
   }
 
   async start() {
+    // Initialize rules checker
+    await this.rulesChecker.initialize();
+    
     this.clearScreen();
     this.showWelcome();
     
@@ -123,15 +120,13 @@ export class UnifiedMonitor {
   }
 
   showWelcome() {
-    console.log(chalk.bold.cyan('\n🎓 Claude Code Teacher - Unified Monitor'));
-    console.log(chalk.gray('Switch between modes with Shift+Tab'));
+    console.log(chalk.bold.cyan('\n🎓 Claude Code Teacher'));
+    console.log(chalk.gray('Real-time code monitoring with teaching & analysis'));
     console.log(chalk.gray('─'.repeat(60)));
     console.log(chalk.yellow('\n🔄 Available Modes:'));
-    console.log(chalk.gray('  • Chat - Interactive Q&A while coding'));
-    console.log(chalk.gray('  • Diff - See exact code changes'));
-    console.log(chalk.gray('  • Clean - Recent updates with AI analysis'));
-    console.log(chalk.gray('  • Enhanced - Monitor everything'));
-    console.log(chalk.gray('  • Companion - Full productivity suite'));
+    console.log(chalk.gray('  • Diff - Code changes with teaching explanations'));
+    console.log(chalk.gray('  • Rules - Monitor CLAUDE.md compliance'));
+    console.log(chalk.gray('  • Chat - Interactive Q&A'));
     console.log(chalk.gray('─'.repeat(60)));
     
     this.showModeNotification();
@@ -164,12 +159,7 @@ export class UnifiedMonitor {
   setupInputHandling() {
     this.rl.on('line', async (input) => {
       if (this.currentMode !== 'chat') {
-        // In non-chat modes, handle commands only
-        if (input.trim().toLowerCase() === 'q' || input.trim().toLowerCase() === 'quit') {
-          this.handleExit();
-        } else if (input.trim() === '?') {
-          this.showHelp();
-        }
+        // In non-chat modes, no input handling
         return;
       }
       
@@ -229,7 +219,7 @@ export class UnifiedMonitor {
               this.currentContext.diff = diff;
             }
           } catch (e) {
-            // Not in git
+            // Not in git or no changes
           }
         }
       } catch (e) {
@@ -249,7 +239,7 @@ export class UnifiedMonitor {
     
     // Add to updates
     this.updates.push(update);
-    const maxUpdates = this.currentMode === 'chat' ? 5 : 10;
+    const maxUpdates = 10;
     if (this.updates.length > maxUpdates) {
       this.updates.shift();
     }
@@ -264,27 +254,84 @@ export class UnifiedMonitor {
     this.clearScreen();
     
     switch (this.currentMode) {
-      case 'chat':
-        this.displayChatMode();
-        break;
       case 'diff':
         this.displayDiffMode();
         break;
-      case 'clean':
-        this.displayCleanMode();
+      case 'rules':
+        this.displayRulesMode();
         break;
-      case 'enhanced':
-        this.displayEnhancedMode();
-        break;
-      case 'companion':
-        this.displayCompanionMode();
+      case 'chat':
+        this.displayChatMode();
         break;
     }
   }
 
+  displayDiffMode() {
+    console.log(chalk.bold.yellow('🔍 Claude Code Teacher - Diff Mode'));
+    console.log(chalk.gray('Showing code changes with teaching explanations'));
+    console.log(chalk.gray('─'.repeat(60)));
+    
+    if (this.updates.length === 0) {
+      console.log(chalk.gray('\n   Waiting for changes...\n'));
+      return;
+    }
+    
+    // Show updates with diffs and explanations (most recent first)
+    this.updates.slice(-5).reverse().forEach(update => {
+      console.log('\n' + chalk.bold('═'.repeat(50)));
+      console.log(chalk.bold(`📌 UPDATE #${update.number} | ${update.timestamp}`));
+      console.log(chalk.bold('═'.repeat(50)));
+      
+      const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
+      console.log(`${icon} ${update.filename}`);
+      
+      if (update.context.diff) {
+        console.log('\n' + chalk.bold('Changes:'));
+        console.log(this.formatDiff(update.context.diff));
+        
+        // Add teaching explanation
+        const explanation = this.generateDiffExplanation(update.context);
+        if (explanation) {
+          console.log('\n' + chalk.bold.cyan('🎓 What this change does:'));
+          console.log(chalk.gray(explanation));
+        }
+      }
+    });
+  }
+
+  async displayRulesMode() {
+    console.log(chalk.bold.green('📋 Claude Code Teacher - Rules Mode'));
+    console.log(chalk.gray('Monitoring code compliance with CLAUDE.md & best practices'));
+    console.log(chalk.gray('─'.repeat(60)));
+    
+    if (this.updates.length === 0) {
+      console.log(chalk.gray('\n   Waiting for changes...\n'));
+      return;
+    }
+    
+    // Show updates with rules checking (most recent first)
+    for (const update of this.updates.slice(-5).reverse()) {
+      console.log('\n' + chalk.gray('─'.repeat(50)));
+      console.log(`${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
+      
+      if (update.context.content && update.type !== 'deleted') {
+        // Check against rules
+        const checkResult = await this.rulesChecker.checkFile(update.filePath, update.context.content);
+        const report = this.rulesChecker.formatReport(checkResult);
+        console.log(report);
+        
+        // Add AI advisor suggestions
+        const suggestions = this.seniorDev.analyzeCode(update.context.content, update.filename);
+        if (suggestions.length > 0) {
+          console.log(this.seniorDev.formatSuggestions(suggestions));
+        }
+      }
+    }
+  }
+
   displayChatMode() {
-    console.log(chalk.bold.cyan('🎓 Claude Code Teacher - Interactive Chat'));
-    console.log(chalk.gray('Shift+Tab to switch modes • /help for commands'));
+    console.log(chalk.bold.cyan('🎓 Claude Code Teacher - Chat Mode'));
+    console.log(chalk.gray('Ask questions while coding • /help for commands'));
     console.log(chalk.gray('─'.repeat(60)));
     
     // Show compact file updates
@@ -292,7 +339,7 @@ export class UnifiedMonitor {
     if (this.updates.length === 0) {
       console.log(chalk.gray('  No changes yet...'));
     } else {
-      this.updates.slice(-3).forEach(update => {
+      this.updates.slice(-3).reverse().forEach(update => {
         const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
         console.log(`  ${icon} ${update.filename} ${chalk.gray(update.timestamp)}`);
       });
@@ -318,125 +365,6 @@ export class UnifiedMonitor {
     console.log(chalk.gray('─'.repeat(60)));
   }
 
-  displayDiffMode() {
-    console.log(chalk.bold.yellow('🔍 Claude Code Teacher - Diff Mode'));
-    console.log(chalk.gray('Shift+Tab to switch modes • Showing exact changes'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    if (this.updates.length === 0) {
-      console.log(chalk.gray('\n   Waiting for changes...\n'));
-      return;
-    }
-    
-    // Show updates with diffs
-    this.updates.slice(-5).forEach(update => {
-      console.log('\n' + chalk.bold('═'.repeat(50)));
-      console.log(chalk.bold(`📌 UPDATE #${update.number} | ${update.timestamp}`));
-      console.log(chalk.bold('═'.repeat(50)));
-      
-      const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
-      console.log(`${icon} ${update.filename}`);
-      
-      if (update.context.diff) {
-        console.log('\n' + chalk.bold('Changes:'));
-        console.log(this.formatDiff(update.context.diff));
-      }
-    });
-  }
-
-  displayCleanMode() {
-    console.log(chalk.bold.green('📝 Claude Code Teacher - Clean Mode'));
-    console.log(chalk.gray('Shift+Tab to switch modes • AI-powered analysis'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    if (this.updates.length === 0) {
-      console.log(chalk.gray('\n   Waiting for changes...\n'));
-      return;
-    }
-    
-    // Show updates with AI analysis
-    this.updates.slice(-8).forEach(update => {
-      console.log('\n' + chalk.gray('─'.repeat(50)));
-      console.log(`${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
-      
-      if (update.context.content) {
-        // Show code snippet
-        const snippet = this.extractImportantCode(update.context.content, update.context.ext);
-        if (snippet) {
-          console.log(chalk.gray('\nCode:'));
-          console.log(chalk.cyan(snippet));
-        }
-        
-        // Show AI analysis
-        const suggestions = this.seniorDev.analyzeCode(update.context.content, update.filename);
-        if (suggestions.length > 0) {
-          console.log(this.seniorDev.formatSuggestions(suggestions));
-        }
-      }
-    });
-  }
-
-  displayEnhancedMode() {
-    console.log(chalk.bold.magenta('🚀 Claude Code Teacher - Enhanced Mode'));
-    console.log(chalk.gray('Shift+Tab to switch modes • Monitoring everything'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    // Show comprehensive information
-    console.log(chalk.yellow('\n📊 Project Statistics:'));
-    console.log(`  Total changes: ${this.updateCount}`);
-    console.log(`  Files modified: ${new Set(this.updates.map(u => u.filename)).size}`);
-    
-    console.log(chalk.yellow('\n📋 All Recent Activity:'));
-    this.updates.forEach(update => {
-      console.log(`  ${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
-    });
-    
-    if (this.currentContext && this.currentContext.content) {
-      console.log(chalk.yellow('\n🔍 Current Focus:'));
-      console.log(`  File: ${this.currentContext.filename}`);
-      console.log(`  Lines: ${this.currentContext.content.split('\n').length}`);
-    }
-  }
-
-  displayCompanionMode() {
-    console.log(chalk.bold.blue('🎓 Claude Code Teacher - Companion Mode'));
-    console.log(chalk.gray('Shift+Tab to switch modes • Your complete coding companion'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    // Show companion dashboard
-    console.log(chalk.yellow('\n📈 Dashboard:'));
-    console.log(`  🔥 Productivity: 4/4 pomodoros today`);
-    console.log(`  💪 Wellness: 85/100 score`);
-    console.log(`  🎆 Streak: 7 days`);
-    console.log(`  ⬆️ Level: 12 (850/1200 XP)`);
-    
-    console.log(chalk.yellow('\n🎯 Quick Actions:'));
-    console.log(chalk.cyan('  P - Start Pomodoro • W - Wellness Check • D - Debug with Duck'));
-    console.log(chalk.cyan('  E - Entertainment • F - Focus Mode • S - Stats'));
-    
-    // Show recent activity if any
-    if (this.updates.length > 0) {
-      console.log(chalk.yellow('\n📁 Recent Code Activity:'));
-      this.updates.slice(-3).forEach(update => {
-        console.log(`  ${this.getUpdateIcon(update.type)} ${update.filename} ${chalk.gray(update.timestamp)}`);
-      });
-    }
-    
-    // Daily tip
-    const tips = [
-      "💡 Tip: Regular breaks increase productivity by 40%!",
-      "🧠 Tip: Your brain can only focus for 90-120 minutes at a time.",
-      "💧 Tip: Staying hydrated improves cognitive function by 14%.",
-      "🌱 Tip: Indoor plants can increase productivity by up to 15%."
-    ];
-    
-    const tip = tips[Math.floor(Math.random() * tips.length)];
-    console.log(chalk.gray('\n' + tip));
-    
-    console.log(chalk.gray('\n─'.repeat(60)));
-    console.log(chalk.gray('Type commands above or press Enter for full companion menu'));
-  }
-
   getUpdateIcon(type) {
     const icons = {
       'added': chalk.green('✅'),
@@ -449,48 +377,74 @@ export class UnifiedMonitor {
   formatDiff(diff) {
     const lines = diff.split('\n');
     const formatted = [];
+    let showCount = 0;
     
-    lines.slice(0, 20).forEach(line => {
+    lines.forEach(line => {
+      if (showCount > 20) return;
+      
       if (line.startsWith('+') && !line.startsWith('+++')) {
         formatted.push(chalk.green(line));
+        showCount++;
       } else if (line.startsWith('-') && !line.startsWith('---')) {
         formatted.push(chalk.red(line));
+        showCount++;
       } else if (line.startsWith('@@')) {
         formatted.push(chalk.blue(line));
-      } else if (!line.startsWith('diff --git') && !line.startsWith('index')) {
-        formatted.push(chalk.gray(line));
       }
     });
+    
+    if (showCount > 20) {
+      formatted.push(chalk.gray('... (diff truncated)'));
+    }
     
     return formatted.join('\n');
   }
 
-  extractImportantCode(content, ext) {
-    const lines = content.split('\n');
-    if (lines.length <= 10) return lines.join('\n');
+  generateDiffExplanation(context) {
+    if (!context.diff) return null;
     
-    // Extract key parts
-    const important = [];
+    const { filename, ext, diff } = context;
+    const addedLines = (diff.match(/^\+[^+]/gm) || []).length;
+    const removedLines = (diff.match(/^-[^-]/gm) || []).length;
     
-    // Get imports
-    const imports = lines.filter(line => 
-      line.includes('import') || line.includes('require')
-    ).slice(0, 3);
+    // Analyze what changed
+    const explanations = [];
     
-    if (imports.length > 0) {
-      important.push(...imports, '');
+    if (diff.includes('import') || diff.includes('require')) {
+      explanations.push('Added or modified imports/dependencies');
     }
     
-    // Get function definitions
-    const functions = lines.filter(line =>
-      line.includes('function') || line.includes('=>') || line.includes('class')
-    ).slice(0, 3);
-    
-    if (functions.length > 0) {
-      important.push(...functions);
+    if (diff.includes('function') || diff.includes('=>')) {
+      explanations.push('Function implementation changed');
     }
     
-    return important.join('\n');
+    if (diff.includes('class')) {
+      explanations.push('Class definition modified');
+    }
+    
+    if (diff.includes('if') || diff.includes('else')) {
+      explanations.push('Control flow logic updated');
+    }
+    
+    if (diff.includes('try') || diff.includes('catch')) {
+      explanations.push('Error handling added or modified');
+    }
+    
+    // General summary
+    let summary = `This change modifies ${filename} with ${addedLines} additions and ${removedLines} deletions. `;
+    
+    if (explanations.length > 0) {
+      summary += `Key changes: ${explanations.join(', ')}.`;
+    }
+    
+    // Add teaching moment
+    if (diff.includes('async') || diff.includes('await')) {
+      summary += '\n\n💡 Teaching: This uses async/await for handling asynchronous operations, making the code more readable than callbacks or promise chains.';
+    } else if (diff.includes('const') || diff.includes('let')) {
+      summary += '\n\n💡 Teaching: Using const/let provides block scoping and prevents accidental reassignments, making code more predictable.';
+    }
+    
+    return summary;
   }
 
   async handleChatCommand(command) {
@@ -525,7 +479,7 @@ export class UnifiedMonitor {
     
     // Context-aware responses
     if (this.currentContext) {
-      if (lowerMessage.includes('what changed') || lowerMessage.includes('last')) {
+      if (lowerMessage.includes('what changed') || lowerMessage.includes('last change')) {
         return this.explainLastChange();
       }
     }
@@ -535,8 +489,13 @@ export class UnifiedMonitor {
       return this.explainConcept(message);
     }
     
+    // Code quality questions
+    if (lowerMessage.includes('security') || lowerMessage.includes('safe')) {
+      return await this.checkSecurity();
+    }
+    
     // Default helpful response
-    return `I'm here to help you learn! You asked: "${message}"\n\nTry asking about:\n• Recent code changes\n• Programming concepts\n• Best practices\n• Security or performance`;
+    return `I can help you with:\n• Recent code changes ("what changed?")\n• Programming concepts ("what is async/await?")\n• Code quality ("any security issues?")\n• Best practices ("how can I improve this?")`;
   }
 
   explainLastChange() {
@@ -547,18 +506,48 @@ export class UnifiedMonitor {
     const { type, filename, diff } = this.currentContext;
     
     if (type === 'modified' && diff) {
-      return `The file ${filename} was modified. Here's what changed:\n\n${this.formatDiff(diff).slice(0, 500)}...\n\nThis change appears to be updating the code structure.`;
+      const explanation = this.generateDiffExplanation(this.currentContext);
+      return `File ${filename} was modified.\n\n${explanation}`;
     }
     
-    return `The file ${filename} was ${type}. Make another change and I'll show you the diff!`;
+    return `File ${filename} was ${type}. Make another change and I'll explain it!`;
   }
 
   explainConcept(question) {
-    if (question.toLowerCase().includes('async')) {
-      return 'Async/await makes asynchronous code look synchronous, making it easier to read and understand. It\'s like waiting in line - you can do other things while waiting!';
+    const concepts = {
+      'async': 'Async/await makes asynchronous code look synchronous. It\'s syntactic sugar over promises that makes code easier to read and debug.',
+      'closure': 'A closure gives you access to an outer function\'s scope from an inner function. It\'s like a backpack of variables that a function carries around.',
+      'promise': 'A Promise represents a value that may be available now, in the future, or never. It\'s like ordering food - you get a receipt (promise) immediately, but the food (value) comes later.',
+      'arrow function': 'Arrow functions (=>) provide a concise syntax and lexically bind the \'this\' value. They\'re great for callbacks and functional programming.'
+    };
+    
+    for (const [concept, explanation] of Object.entries(concepts)) {
+      if (question.toLowerCase().includes(concept)) {
+        return explanation;
+      }
     }
     
-    return 'That\'s a great question! I can explain concepts like async/await, promises, closures, and more. What would you like to learn about?';
+    return 'That\'s a great question! I can explain concepts like async/await, promises, closures, arrow functions, and more. What would you like to learn about?';
+  }
+
+  async checkSecurity() {
+    if (!this.currentContext || !this.currentContext.content) {
+      return "No recent file changes to analyze. Modify a file and I'll check it for security issues!";
+    }
+    
+    const checkResult = await this.rulesChecker.checkFile(
+      this.currentContext.filePath,
+      this.currentContext.content
+    );
+    
+    if (checkResult.violations.length > 0) {
+      const critical = checkResult.violations.filter(v => v.severity === 'critical');
+      if (critical.length > 0) {
+        return `⚠️ Found ${critical.length} security issues in ${this.currentContext.filename}:\n${critical.map(v => `• ${v.message}`).join('\n')}`;
+      }
+    }
+    
+    return `✅ No major security issues found in ${this.currentContext.filename}. Keep up the good work!`;
   }
 
   addChatMessage(role, content) {
@@ -573,19 +562,6 @@ export class UnifiedMonitor {
     }
   }
 
-  showHelp() {
-    console.log(chalk.yellow('\n📌 Help:'));
-    console.log(chalk.gray('  Shift+Tab - Switch between modes'));
-    console.log(chalk.gray('  ? - Show this help'));
-    console.log(chalk.gray('  q/quit - Exit'));
-    
-    if (this.currentMode === 'chat') {
-      console.log(chalk.gray('\n  Chat commands:'));
-      console.log(chalk.gray('  /help - Show chat help'));
-      console.log(chalk.gray('  /clear - Clear chat history'));
-    }
-  }
-
   showChatHelp() {
     const help = `
 ${chalk.bold.yellow('💬 Chat Commands:')}
@@ -596,7 +572,7 @@ ${chalk.bold.yellow('💬 Chat Commands:')}
 ${chalk.bold.yellow('🎯 You can ask about:')}
 • Recent changes: "What changed?"
 • Concepts: "What is async/await?"
-• Code quality: "Any security issues?"
+• Security: "Any security issues?"
 • Best practices: "How can I improve this?"`;
     
     this.addChatMessage('system', help);

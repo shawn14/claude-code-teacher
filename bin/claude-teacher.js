@@ -4,20 +4,18 @@ import { program } from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import ora from 'ora';
-import { spawn } from 'child_process';
-import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startWatcher } from '../src/monitor.js';
 import { startMCPServer } from '../src/mcp-server.js';
 import { configureClaudeCode } from '../src/config.js';
+import { UnifiedMonitor } from '../src/unified-monitor.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 program
   .name('claude-teacher')
-  .description('Real-time teaching agent for Claude Code')
-  .version('1.0.0');
+  .description('Real-time code monitoring with teaching & analysis')
+  .version('7.0.0');
 
 program
   .command('init')
@@ -36,7 +34,7 @@ program
       spinner.succeed(`MCP server running on port ${server.port}`);
       
       console.log(chalk.green('\n✓ Claude Code Teacher initialized!'));
-      console.log(chalk.gray('The teaching agent is now ready to explain code changes.'));
+      console.log(chalk.gray('The teaching agent is now ready to monitor code changes.'));
       console.log(chalk.blue('\nTo stop the server, press Ctrl+C'));
       
     } catch (error) {
@@ -48,31 +46,13 @@ program
 
 program
   .command('watch [path]')
-  .description('Watch a directory for Claude Code activity')
-  .option('-m, --mode <mode>', 'explanation mode', 'realtime')
-  .action(async (watchPath = '.', options) => {
+  .description('Start unified monitor with mode switching')
+  .action(async (watchPath = '.') => {
     const absolutePath = path.resolve(watchPath);
-    console.log(chalk.blue(`Watching for changes in: ${absolutePath}`));
+    console.log(chalk.blue(`Starting monitor in: ${absolutePath}`));
     
-    const spinner = ora('Starting file watcher...').start();
-    
-    try {
-      await startWatcher(absolutePath, {
-        mode: options.mode,
-        onExplanation: (explanation) => {
-          console.log(chalk.yellow('\n📚 Teaching Moment:'));
-          console.log(explanation);
-        }
-      });
-      
-      spinner.succeed('File watcher started');
-      console.log(chalk.gray('Press Ctrl+C to stop watching'));
-      
-    } catch (error) {
-      spinner.fail('Failed to start watcher');
-      console.error(chalk.red(error.message));
-      process.exit(1);
-    }
+    const monitor = new UnifiedMonitor(absolutePath);
+    await monitor.start();
   });
 
 program
@@ -107,79 +87,36 @@ program
 // Interactive mode when no command specified
 if (process.argv.length === 2) {
   (async () => {
-    console.log(chalk.bold.blue('Claude Code Teacher'));
-    console.log(chalk.gray('Real-time code explanations for learners\n'));
+    console.log(chalk.bold.cyan('🎓 Claude Code Teacher'));
+    console.log(chalk.gray('Real-time code monitoring with teaching & analysis\n'));
     
-    const { mode } = await inquirer.prompt([
+    const { action } = await inquirer.prompt([
       {
         type: 'list',
-        name: 'mode',
-        message: 'How would you like to use the teacher?',
+        name: 'action',
+        message: 'What would you like to do?',
         choices: [
-          { name: '🎓 Companion Mode (NEW! Complete developer companion)', value: 'companion' },
-          { name: '✨ Unified Monitor (Switch modes with Shift+Tab)', value: 'unified' },
-          { name: '💬 Interactive Chat (Chat with AI while coding)', value: 'chat' },
-          { name: '🆕 Diff Monitor (Shows exact code changes)', value: 'diff' },
-          { name: 'Clean Monitor (Shows recent updates only)', value: 'clean' },
-          { name: 'Coding Mentor (friendly explanations)', value: 'realtime' },
-          { name: 'Enhanced Monitor (watches everything!)', value: 'enhanced' },
-          { name: 'Learning mode (with quizzes)', value: 'learning' },
-          { name: 'Architecture overview', value: 'architecture' },
-          { name: 'Debug helper', value: 'debug' },
-          { name: 'Configure Claude Code', value: 'configure' }
+          { name: '🚀 Start Monitoring (with mode switching)', value: 'monitor' },
+          { name: '⚙️  Configure Claude Code', value: 'configure' },
+          { name: '🌐 Start MCP Server', value: 'serve' },
+          { name: '❌ Exit', value: 'exit' }
         ]
       }
     ]);
     
-    switch (mode) {
+    switch (action) {
+      case 'monitor':
+        program.parse(['', '', 'watch']);
+        break;
       case 'configure':
         program.parse(['', '', 'init']);
         break;
-      case 'companion':
-        // Use the complete companion mode
-        const { CompanionMode } = await import('../src/companion-mode.js');
-        const companion = new CompanionMode(process.cwd());
-        await companion.start();
+      case 'serve':
+        program.parse(['', '', 'serve']);
         break;
-      case 'unified':
-        // Use the unified monitoring system with mode switching
-        const { UnifiedMonitor } = await import('../src/unified-monitor.js');
-        const unifiedMonitor = new UnifiedMonitor(process.cwd());
-        await unifiedMonitor.start();
-        break;
-      case 'chat':
-        // Use the interactive chat monitoring system
-        const { InteractiveChatMonitor } = await import('../src/interactive-chat-monitor.js');
-        const chatMonitor = new InteractiveChatMonitor(process.cwd());
-        await chatMonitor.start();
-        break;
-      case 'diff':
-        // Use the diff monitoring system
-        const { DiffMonitor } = await import('../src/diff-monitor.js');
-        const diffMonitor = new DiffMonitor(process.cwd());
-        await diffMonitor.start();
-        break;
-      case 'clean':
-        // Use the clean monitoring system
-        const { startCleanMonitor } = await import('../src/clean-monitor.js');
-        await startCleanMonitor(process.cwd());
-        break;
-      case 'realtime':
-        program.parse(['', '', 'watch', '.', '--mode', 'realtime']);
-        break;
-      case 'enhanced':
-        // Use the enhanced monitoring system
-        const { startEnhancedMonitoring } = await import('../src/enhanced-monitor.js');
-        await startEnhancedMonitoring(process.cwd());
-        break;
-      case 'learning':
-        program.parse(['', '', 'watch', '.', '--mode', 'learning']);
-        break;
-      case 'architecture':
-        program.parse(['', '', 'watch', '.', '--mode', 'architecture']);
-        break;
-      case 'debug':
-        program.parse(['', '', 'watch', '.', '--mode', 'debug']);
+      case 'exit':
+        console.log(chalk.yellow('👋 Goodbye!'));
+        process.exit(0);
         break;
     }
   })();
