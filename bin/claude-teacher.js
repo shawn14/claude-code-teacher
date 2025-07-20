@@ -116,7 +116,8 @@ if (process.argv.length === 2) {
         name: 'mode',
         message: 'How would you like to use the teacher?',
         choices: [
-          { name: 'Clean Monitor (NEW! Shows recent updates only)', value: 'clean' },
+          { name: '🆕 Diff Monitor (Shows exact code changes)', value: 'diff' },
+          { name: 'Clean Monitor (Shows recent updates only)', value: 'clean' },
           { name: 'Coding Mentor (friendly explanations)', value: 'realtime' },
           { name: 'Enhanced Monitor (watches everything!)', value: 'enhanced' },
           { name: 'Learning mode (with quizzes)', value: 'learning' },
@@ -130,6 +131,12 @@ if (process.argv.length === 2) {
     switch (mode) {
       case 'configure':
         program.parse(['', '', 'init']);
+        break;
+      case 'diff':
+        // Use the diff monitoring system
+        const { DiffMonitor } = await import('../src/diff-monitor.js');
+        const diffMonitor = new DiffMonitor(process.cwd());
+        await diffMonitor.start();
         break;
       case 'clean':
         // Use the clean monitoring system
