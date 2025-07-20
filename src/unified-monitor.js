@@ -7,6 +7,7 @@ import readline from 'readline';
 import { RulesChecker } from './rules-checker.js';
 import { SeniorDevAdvisor } from './senior-dev-advisor.js';
 import { InsightEngine } from './insight-engine.js';
+import { enhancedInsightEngine } from './enhanced-insight-engine.js';
 import { TypeWriter } from './type-writer.js';
 import { themeManager } from './theme-manager.js';
 
@@ -1063,9 +1064,19 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
       
       if (insights) {
         if (withAnimation) {
-          await this.typeWriter.typeOut(insights, 'normal');
+          await this.typeWriter.typeOut(insights, 'fast');
         } else {
           console.log(insights);
+        }
+      }
+      
+      // Add detailed change analysis
+      const detailedAnalysis = enhancedInsightEngine.analyzeSpecificChange(update.context);
+      if (detailedAnalysis) {
+        if (withAnimation) {
+          await this.typeWriter.typeOut(detailedAnalysis, 'normal');
+        } else {
+          console.log(detailedAnalysis);
         }
       }
     }

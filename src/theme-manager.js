@@ -117,11 +117,15 @@ export class ThemeManager {
   async loadTheme() {
     try {
       const savedTheme = await readFile(this.themePath, 'utf-8');
-      if (this.themes[savedTheme.trim()]) {
-        this.currentTheme = savedTheme.trim();
+      const trimmedTheme = savedTheme.trim();
+      
+      if (this.themes[trimmedTheme]) {
+        this.currentTheme = trimmedTheme;
+        console.log(`Loaded theme: ${trimmedTheme}`);
       }
-    } catch {
+    } catch (error) {
       // No saved theme, use default
+      console.log('Using default theme: dark');
     }
   }
   

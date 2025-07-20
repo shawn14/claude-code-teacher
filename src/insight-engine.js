@@ -273,7 +273,9 @@ export class InsightEngine {
       react: 'React',
       vue: 'Vue',
       angular: 'Angular',
-      node: 'Node.js'
+      node: 'Node.js',
+      typescript: 'TypeScript',
+      testing: 'Testing'
     };
     
     return humanNames[pattern] || pattern;
