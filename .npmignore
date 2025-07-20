@@ -1,0 +1,34 @@
+# Development files
+demo-dialogue.js
+test-connection.js
+*.log
+.DS_Store
+
+# Git files
+.git
+.gitignore
+
+# Editor files
+.vscode
+.idea
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Documentation source files
+docs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+dist/
+build/
+
+# Node modules (will be installed by npm)
+node_modules/

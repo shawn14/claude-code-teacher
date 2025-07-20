@@ -1,0 +1,68 @@
+{
+  "mcp-servers": {
+    "teacher": {
+      "command": "npx",
+      "args": ["claude-code-teacher", "serve"],
+      "name": "Claude Code Teacher",
+      "description": "Real-time code explanations and learning assistance",
+      "capabilities": {
+        "tools": {
+          "explain": {
+            "description": "Explain code changes and concepts",
+            "parameters": {
+              "code": {
+                "type": "string",
+                "description": "Code to explain"
+              },
+              "context": {
+                "type": "string", 
+                "description": "Surrounding context"
+              },
+              "level": {
+                "type": "string",
+                "enum": ["beginner", "intermediate", "advanced"],
+                "description": "Explanation level"
+              }
+            }
+          },
+          "quiz": {
+            "description": "Generate quiz questions about code",
+            "parameters": {
+              "topic": {
+                "type": "string",
+                "description": "Topic to quiz on"
+              },
+              "difficulty": {
+                "type": "string",
+                "enum": ["easy", "medium", "hard"],
+                "description": "Question difficulty"
+              }
+            }
+          },
+          "debug": {
+            "description": "Help debug code issues",
+            "parameters": {
+              "error": {
+                "type": "string",
+                "description": "Error message"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code causing the error"
+              }
+            }
+          },
+          "architecture": {
+            "description": "Analyze and explain code architecture",
+            "parameters": {
+              "projectPath": {
+                "type": "string",
+                "description": "Path to analyze"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

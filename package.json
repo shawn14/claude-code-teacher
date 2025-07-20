@@ -1,0 +1,47 @@
+{
+  "name": "claude-code-teacher",
+  "version": "3.0.0",
+  "description": "AI-powered teaching system with senior dev advisor that monitors code changes and provides security, performance, and best practice insights",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "claude-teacher": "./bin/claude-teacher.js"
+  },
+  "scripts": {
+    "start": "node bin/claude-teacher.js",
+    "serve": "node src/mcp-server.js",
+    "dialogue": "node demo-dialogue.js",
+    "bridge": "node -e \"import('./src/communication-bridge.js').then(({CommunicationBridge}) => new CommunicationBridge().start())\""
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "teaching",
+    "learning",
+    "mcp",
+    "ai",
+    "code-explanation"
+  ],
+  "author": "Claude Code Teacher Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "chokidar": "^3.5.3",
+    "commander": "^11.1.0",
+    "inquirer": "^9.2.12",
+    "ws": "^8.16.0",
+    "diff": "^5.1.0",
+    "ora": "^8.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shawn14/claude-code-teacher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shawn14/claude-code-teacher/issues"
+  },
+  "homepage": "https://github.com/shawn14/claude-code-teacher#readme"
+}
