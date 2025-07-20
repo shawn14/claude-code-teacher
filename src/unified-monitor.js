@@ -51,10 +51,8 @@ export class UnifiedMonitor {
         this.handleModeSwitch();
       } else if (key && key.ctrl && key.name === 'c') {
         this.handleExit();
-      } else if (this.currentMode === 'chat' && str) {
-        // In chat mode, handle normal input
-        process.stdout.write(str);
       }
+      // Remove the manual character writing - readline handles this
     });
   }
 
