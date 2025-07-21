@@ -19,7 +19,7 @@ export class InsightEngine {
       database: /query|select|insert|update|delete|mongoose|sequelize/i,
       errorHandling: /try|catch|error|throw/i,
       validation: /validate|check|verify|sanitize/i,
-      performance: /memo|cache|optimize|debounce|throttle/i,
+      performance: /memo|cache|Cache|optimize|debounce|throttle|performance/i,
       security: /password|secret|key|encrypt|hash/i,
       async: /async|await|promise|then/i,
       hooks: /use[A-Z]\w+/,
@@ -504,12 +504,21 @@ export class InsightEngine {
     }
     
     // Performance-related changes
-    if (changedCode.match(/useMemo|useCallback|memo|lazy|Suspense/)) {
+    if (changedCode.match(/useMemo|useCallback|memo|lazy|Suspense|cache|Cache|performance/i)) {
       explanation += colors.accent('   ⚡ Performance optimization detected\n');
       explanation += colors.muted('      Performance considerations:\n');
       explanation += colors.muted('      • Measure before and after\n');
       explanation += colors.muted('      • Don\'t optimize prematurely\n');
       explanation += colors.muted('      • Consider trade-offs (memory vs speed)\n');
+      
+      if (changedCode.match(/cache|Cache/)) {
+        explanation += colors.muted('      \n');
+        explanation += colors.muted('      Cache implementation tips:\n');
+        explanation += colors.muted('      • Set appropriate TTL (time to live)\n');
+        explanation += colors.muted('      • Implement cache invalidation strategy\n');
+        explanation += colors.muted('      • Monitor cache hit/miss rates\n');
+        explanation += colors.muted('      • Consider memory limits\n');
+      }
     }
     
     // If no specific patterns found, provide general guidance
