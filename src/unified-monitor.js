@@ -28,6 +28,7 @@ export class UnifiedMonitor {
     this.lastDisplayedUpdate = null;
     this.updateHistoryPage = 0;
     this.viewingHistory = false;
+    this.previousFileContents = {};
     
     // Initialize components
     this.rulesChecker = new RulesChecker(projectPath);
@@ -330,6 +331,7 @@ export class UnifiedMonitor {
         
         if (type === 'modified') {
           try {
+            // Try to get diff from git
             const diff = execSync(`git diff HEAD -- "${filePath}"`, {
               encoding: 'utf8',
               maxBuffer: 1024 * 1024,
@@ -337,14 +339,47 @@ export class UnifiedMonitor {
             });
             if (diff && diff.trim()) {
               this.currentContext.diff = diff;
+            } else {
+              // If no git diff, try to get diff for unstaged files
+              const diffUnstaged = execSync(`git diff -- "${filePath}"`, {
+                encoding: 'utf8',
+                maxBuffer: 1024 * 1024,
+                cwd: this.projectPath
+              });
+              if (diffUnstaged && diffUnstaged.trim()) {
+                this.currentContext.diff = diffUnstaged;
+              }
             }
           } catch (e) {
-            // Not in git or no changes
+            // Not in git or no changes - create a simple diff for display
+            if (this.previousFileContents && this.previousFileContents[filePath]) {
+              // Create a manual diff for demonstration
+              const oldContent = this.previousFileContents[filePath];
+              const newContent = this.currentContext.content;
+              this.currentContext.diff = this.createSimpleDiff(oldContent, newContent, filePath);
+            }
           }
+        } else if (type === 'added') {
+          // For new files, create a diff showing all lines as additions
+          const lines = this.currentContext.content.split('\n');
+          let diff = `diff --git a/${filename} b/${filename}\n`;
+          diff += `new file mode 100644\n`;
+          diff += `--- /dev/null\n`;
+          diff += `+++ b/${filename}\n`;
+          diff += `@@ -0,0 +1,${lines.length} @@\n`;
+          lines.forEach(line => {
+            diff += `+${line}\n`;
+          });
+          this.currentContext.diff = diff;
         }
       } catch (e) {
         // Can't read file
       }
+    }
+    
+    // Store content for future diffs
+    if (type === 'modified' && this.currentContext.content) {
+      this.previousFileContents[filePath] = this.currentContext.content;
     }
     
     // Create update object with proper timestamp for sorting
@@ -509,6 +544,35 @@ export class UnifiedMonitor {
     return icons[type] || '📄';
   }
 
+  createSimpleDiff(oldContent, newContent, filename) {
+    const oldLines = oldContent.split('\n');
+    const newLines = newContent.split('\n');
+    
+    let diff = `diff --git a/${filename} b/${filename}\n`;
+    diff += `--- a/${filename}\n`;
+    diff += `+++ b/${filename}\n`;
+    diff += `@@ -1,${oldLines.length} +1,${newLines.length} @@\n`;
+    
+    // Simple line-by-line diff
+    const maxLines = Math.max(oldLines.length, newLines.length);
+    for (let i = 0; i < maxLines; i++) {
+      if (i < oldLines.length && i < newLines.length) {
+        if (oldLines[i] !== newLines[i]) {
+          diff += `-${oldLines[i]}\n`;
+          diff += `+${newLines[i]}\n`;
+        } else {
+          diff += ` ${oldLines[i]}\n`;
+        }
+      } else if (i < oldLines.length) {
+        diff += `-${oldLines[i]}\n`;
+      } else {
+        diff += `+${newLines[i]}\n`;
+      }
+    }
+    
+    return diff;
+  }
+  
   formatDiff(diff) {
     const lines = diff.split('\n');
     const formatted = [];
