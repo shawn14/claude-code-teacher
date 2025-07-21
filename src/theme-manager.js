@@ -126,6 +126,7 @@ export class ThemeManager {
     } catch (error) {
       // No saved theme, use default
       console.log('Using default theme: dark');
+      // Initialize with default theme
     }
   }
   

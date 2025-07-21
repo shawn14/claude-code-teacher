@@ -6,10 +6,10 @@ import { execSync } from 'child_process';
 import readline from 'readline';
 import { RulesChecker } from './rules-checker.js';
 import { SeniorDevAdvisor } from './senior-dev-advisor.js';
-import { InsightEngine } from './insight-engine.js';
-import { enhancedInsightEngine } from './enhanced-insight-engine.js';
+import { insightEngine } from './insight-engine-unified.js';
 import { TypeWriter } from './type-writer.js';
 import { themeManager } from './theme-manager.js';
+import { tokenAnalyzer } from './token-analyzer.js';
 
 export class UnifiedMonitor {
   constructor(projectPath, options = {}) {
@@ -33,7 +33,6 @@ export class UnifiedMonitor {
     // Initialize components
     this.rulesChecker = new RulesChecker(projectPath);
     this.seniorDev = new SeniorDevAdvisor();
-    this.insightEngine = new InsightEngine();
     this.typeWriter = new TypeWriter();
     
     // Set up readline with keypress events
@@ -70,6 +69,16 @@ export class UnifiedMonitor {
         this.viewingHistory = true;
         this.updateHistoryPage = 0;
         await this.displayUpdateHistory();
+      } else if (this.currentMode === 'diff' && key && key.name === 't') {
+        // Press 't' to cycle through insight modes
+        const modes = ['basic', 'detailed', 'optimized'];
+        const currentMode = insightEngine.getMode();
+        const currentIndex = modes.indexOf(currentMode);
+        const nextMode = modes[(currentIndex + 1) % modes.length];
+        insightEngine.setMode(nextMode);
+        const colors = themeManager.getColors();
+        console.log(colors.info(`\n🔄 Switched to ${nextMode} insights mode\n`));
+        await this.updateDisplay();
       }
       // Remove the manual character writing - readline handles this
     });
@@ -440,6 +449,7 @@ export class UnifiedMonitor {
     // Show controls
     console.log(colors.secondary('\n🎮 Controls:'));
     console.log(colors.muted(`  Press 'h' for history (${this.updates.length} total updates)`));
+    console.log(colors.muted(`  Press 't' to cycle insights (${insightEngine.getMode()})`));
     console.log(colors.muted('  Shift+Tab to switch modes\n'));
     
     // Get the most recent update for typing animation
@@ -461,13 +471,7 @@ export class UnifiedMonitor {
         console.log(this.formatDiff(latestUpdate.context.diff));
         
         // Type out insights for the latest update
-        const analysisContext = {
-          ...latestUpdate.context,
-          patterns: this.insightEngine.detectPatterns(latestUpdate.context),
-          category: this.insightEngine.detectChangeCategory(latestUpdate.context),
-          complexity: this.insightEngine.calculateComplexity(latestUpdate.context)
-        };
-        const insights = this.insightEngine.analyzeChange(analysisContext);
+        const insights = insightEngine.analyzeChange(latestUpdate.context);
         if (insights) {
           await this.typeWriter.typeOut(insights, 'normal');
         }
@@ -724,13 +728,7 @@ export class UnifiedMonitor {
     const { type, filename, diff } = this.currentContext;
     
     if (type === 'modified' && diff) {
-      const analysisContext = {
-        ...this.currentContext,
-        patterns: this.insightEngine.detectPatterns(this.currentContext),
-        category: this.insightEngine.detectChangeCategory(this.currentContext),
-        complexity: this.insightEngine.calculateComplexity(this.currentContext)
-      };
-      const insights = this.insightEngine.analyzeChange(analysisContext);
+      const insights = insightEngine.analyzeChange(this.currentContext);
       return `File ${filename} was modified.\n${insights}`;
     }
     
@@ -1011,6 +1009,7 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
     // Show controls
     console.log(colors.secondary('\n🎮 Controls:'));
     console.log(colors.muted(`  Press 'h' for history (${this.updates.length} total updates)`));
+    console.log(colors.muted(`  Press 't' to cycle insights (${insightEngine.getMode()})`));
     console.log(colors.muted('  Shift+Tab to switch modes\n'));
     
     // Show the new update with animation
@@ -1054,13 +1053,7 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
       console.log(this.formatDiff(update.context.diff));
       
       // Get insights
-      const analysisContext = {
-        ...update.context,
-        patterns: this.insightEngine.detectPatterns(update.context),
-        category: this.insightEngine.detectChangeCategory(update.context),
-        complexity: this.insightEngine.calculateComplexity(update.context)
-      };
-      const insights = this.insightEngine.analyzeChange(analysisContext);
+      const insights = insightEngine.analyzeChange(update.context);
       
       if (insights) {
         if (withAnimation) {
@@ -1070,13 +1063,32 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
         }
       }
       
-      // Add detailed change analysis
-      const detailedAnalysis = enhancedInsightEngine.analyzeSpecificChange(update.context);
-      if (detailedAnalysis) {
+      // Get analysis from unified engine
+      const analysis = insightEngine.analyzeChange(update.context);
+      
+      if (analysis) {
         if (withAnimation) {
-          await this.typeWriter.typeOut(detailedAnalysis, 'normal');
+          await this.typeWriter.typeOut(analysis, 'normal');
         } else {
-          console.log(detailedAnalysis);
+          console.log(analysis);
+        }
+      }
+      
+      // Show token usage stats
+      const stats = tokenAnalyzer.analyzeOutput(analysis);
+      const tokenStats = tokenAnalyzer.formatStats(stats, 'Insight');
+      console.log(tokenStats);
+      
+      // If in optimized mode, show savings compared to detailed
+      if (insightEngine.getMode() === 'optimized') {
+        const currentMode = insightEngine.getMode();
+        insightEngine.setMode('detailed');
+        const detailedAnalysis = insightEngine.analyzeChange(update.context);
+        insightEngine.setMode(currentMode);
+        
+        const comparison = tokenAnalyzer.compareOutputs(detailedAnalysis, analysis);
+        if (comparison.savings.percentage > 0) {
+          console.log(colors.success(`   💰 Token savings: ${comparison.savings.tokens} tokens (${comparison.savings.percentage}% reduction)\n`));
         }
       }
     }

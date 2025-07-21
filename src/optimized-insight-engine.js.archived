@@ -1,0 +1,110 @@
+import chalk from 'chalk';
+import { themeManager } from './theme-manager.js';
+
+export class OptimizedInsightEngine {
+  constructor() {
+    // Consolidated patterns - reduced from separate regex objects
+    this.patterns = {
+      async: /async|await/,
+      hooks: /use(State|Effect|Context|Memo|Callback)/,
+      api: /fetch|axios|\.then|\.catch/,
+      error: /try|catch|throw/,
+      perf: /memo|debounce|throttle|lazy/
+    };
+    
+    // Compact explanations - high value, low tokens
+    this.insights = {
+      async: '🔄 Async: Use try-catch, await only in async functions',
+      hooks: '🎣 Hooks: State triggers re-renders, cleanup prevents leaks',
+      api: '🌐 API: Check response.ok, handle errors, parse JSON',
+      error: '🛡️ Errors: Log for debugging, user-friendly messages',
+      perf: '⚡ Performance: Measure first, memoize expensive ops'
+    };
+  }
+
+  analyze(context) {
+    const { diff, filename } = context;
+    const added = diff.match(/^\+[^+].*/gm)?.map(l => l.slice(1)) || [];
+    const removed = diff.match(/^-[^-].*/gm)?.map(l => l.slice(1)) || [];
+    
+    let output = '';
+    const colors = themeManager.getColors();
+    
+    // Core change summary - essential info only
+    output += colors.header(`\n📊 ${added.length}+ ${removed.length}- in ${filename}\n`);
+    
+    // Smart diff analysis - focus on what matters
+    const changes = this.detectChangeType(added, removed);
+    if (changes.length) {
+      output += colors.accent('\n🔍 Key Changes:\n');
+      changes.forEach(c => output += `   ${c}\n`);
+    }
+    
+    // Pattern-based insights - only if detected
+    const detectedPatterns = this.detectPatterns(added.join('\n'));
+    if (detectedPatterns.length) {
+      output += colors.secondary('\n💡 Insights:\n');
+      detectedPatterns.forEach(p => output += `   ${this.insights[p]}\n`);
+    }
+    
+    // Context-aware tips - file-specific, concise
+    const tips = this.getContextTips(filename, added);
+    if (tips.length) {
+      output += colors.info('\n⚡ Tips:\n');
+      tips.forEach(t => output += `   ${t}\n`);
+    }
+    
+    return output;
+  }
+  
+  detectChangeType(added, removed) {
+    const changes = [];
+    
+    // Focus on meaningful changes only
+    added.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.includes('const') && removed.some(r => r.includes('var'))) {
+        changes.push('✅ Modernized to ES6+');
+      } else if (trimmed.includes('async') && !removed.some(r => r.includes('async'))) {
+        changes.push('🔄 Made asynchronous');
+      } else if (trimmed.includes('try {')) {
+        changes.push('🛡️ Added error handling');
+      } else if (trimmed.includes('console.')) {
+        changes.push('⚠️ Debug logging (remove for prod)');
+      }
+    });
+    
+    return changes;
+  }
+  
+  detectPatterns(code) {
+    const detected = [];
+    for (const [name, regex] of Object.entries(this.patterns)) {
+      if (regex.test(code)) detected.push(name);
+    }
+    return detected;
+  }
+  
+  getContextTips(filename, added) {
+    const tips = [];
+    const codeStr = added.join(' ');
+    
+    // Smart, contextual tips based on actual changes
+    if (filename.includes('test')) {
+      tips.push('🧪 AAA pattern: Arrange, Act, Assert');
+    }
+    if (codeStr.includes('useState') && !codeStr.includes('useCallback')) {
+      tips.push('💡 Consider useCallback for child props');
+    }
+    if (codeStr.includes('==') && !codeStr.includes('===')) {
+      tips.push('⚠️ Use === for strict equality');
+    }
+    if (codeStr.includes('setTimeout') && !codeStr.includes('clear')) {
+      tips.push('🧹 Clear timeouts to prevent leaks');
+    }
+    
+    return tips;
+  }
+}
+
+export const optimizedInsightEngine = new OptimizedInsightEngine();

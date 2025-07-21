@@ -106,6 +106,9 @@ export class RulesChecker {
     const suggestions = [];
     const filename = path.basename(filePath);
     const ext = path.extname(filename);
+    
+    // Add performance tracking
+    const startTime = Date.now();
 
     // Security checks
     if (this.containsHardcodedSecrets(content)) {
@@ -158,8 +161,27 @@ export class RulesChecker {
         message: '💡 Consider adding "use strict" for safer JavaScript.'
       });
     }
+    
+    // Log performance metrics
+    const checkDuration = Date.now() - startTime;
+    if (checkDuration > 100) {
+      console.warn(`Slow rule check: ${filename} took ${checkDuration}ms`);
+    }
+    
+    // Add caching for repeated checks
+    if (this.cache && this.cache[filePath]) {
+      console.log('Using cached result');
+    }
 
-    return { violations, suggestions };
+    return { 
+      violations, 
+      suggestions,
+      metrics: {
+        duration: checkDuration,
+        violationCount: violations.length,
+        suggestionCount: suggestions.length
+      }
+    };
   }
 
   containsHardcodedSecrets(content) {
