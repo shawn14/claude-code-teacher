@@ -14,7 +14,7 @@ import { tokenAnalyzer } from './token-analyzer.js';
 export class UnifiedMonitor {
   constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.modes = ['diff', 'rules', 'chat', 'theme'];
+    this.modes = ['diff', 'rules', 'theme'];
     this.currentModeIndex = 0;
     this.currentMode = this.modes[this.currentModeIndex];
     this.selectedThemeIndex = 0;
@@ -22,7 +22,6 @@ export class UnifiedMonitor {
     // Shared state
     this.updates = [];
     this.updateCount = 0;
-    this.chatHistory = [];
     this.currentContext = null;
     this.isProcessingInput = false;
     this.watcher = null;
@@ -153,7 +152,6 @@ export class UnifiedMonitor {
     const modeInfo = {
       'diff': '🔍 Diff Mode - See code changes with teaching explanations',
       'rules': '📋 Rules Mode - Monitor CLAUDE.md compliance & best practices',
-      'chat': '💬 Chat Mode - Interactive Q&A while coding',
       'theme': '🎨 Theme Mode - Customize your visual experience'
     };
     
@@ -165,8 +163,7 @@ export class UnifiedMonitor {
   getPrompt() {
     const prompts = {
       'diff': '',
-      'rules': '',
-      'chat': chalk.cyan('💬 ')
+      'rules': ''
     };
     return prompts[this.currentMode] || '> ';
   }
@@ -246,11 +243,6 @@ export class UnifiedMonitor {
     
     // Initial display
     await this.updateDisplay();
-    
-    // Show prompt for chat mode
-    if (this.currentMode === 'chat') {
-      this.rl.prompt();
-    }
   }
 
   async showWelcome() {
@@ -279,7 +271,6 @@ export class UnifiedMonitor {
     console.log(colors.secondary('\n🔄 Available Modes:'));
     await this.typeWriter.typeOut(colors.muted('  • Diff - Code changes with teaching explanations\n'), 'fast');
     await this.typeWriter.typeOut(colors.muted('  • Rules - Monitor CLAUDE.md compliance\n'), 'fast');
-    await this.typeWriter.typeOut(colors.muted('  • Chat - Interactive Q&A\n'), 'fast');
     await this.typeWriter.typeOut(colors.muted('  • Theme - Customize your visual experience\n'), 'fast');
     console.log(colors.muted('─'.repeat(60)));
     
@@ -311,34 +302,9 @@ export class UnifiedMonitor {
   }
 
   setupInputHandling() {
+    // No input handling needed for monitoring modes
     this.rl.on('line', async (input) => {
-      if (this.currentMode !== 'chat') {
-        // In non-chat modes, no input handling
-        return;
-      }
-      
-      // Chat mode input handling
-      if (this.isProcessingInput) return;
-      
-      this.isProcessingInput = true;
-      const trimmedInput = input.trim();
-      
-      if (!trimmedInput) {
-        this.isProcessingInput = false;
-        this.rl.prompt();
-        return;
-      }
-      
-      // Handle commands
-      if (trimmedInput.startsWith('/')) {
-        await this.handleChatCommand(trimmedInput);
-      } else {
-        await this.handleChatMessage(trimmedInput);
-      }
-      
-      this.isProcessingInput = false;
-      await this.updateDisplay();
-      this.rl.prompt();
+      // Just consume the input without processing
     });
   }
 
@@ -417,9 +383,6 @@ export class UnifiedMonitor {
         break;
       case 'rules':
         await this.displayRulesMode();
-        break;
-      case 'chat':
-        await this.displayChatMode();
         break;
       case 'theme':
         await this.displayThemeMode();
@@ -536,43 +499,6 @@ export class UnifiedMonitor {
     }
   }
 
-  async displayChatMode() {
-    console.log(chalk.bold.cyan('🎓 Vibe Code - Chat Mode'));
-    console.log(chalk.gray('Ask questions while coding • /help for commands'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    // Show compact file updates
-    console.log(chalk.bold.yellow('\n📁 Recent Changes:'));
-    if (this.updates.length === 0) {
-      console.log(chalk.gray('  No changes yet...'));
-    } else {
-      const recentUpdates = this.updates.slice(-3);
-      recentUpdates.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
-      recentUpdates.forEach(update => {
-        const icon = update.type === 'added' ? '✅' : update.type === 'modified' ? '📝' : '🗑️';
-        console.log(`  ${icon} ${update.filename} ${chalk.gray(update.timestamp)}`);
-      });
-    }
-    
-    // Show chat
-    console.log(chalk.bold.yellow('\n💬 Chat:'));
-    console.log(chalk.gray('─'.repeat(60)));
-    
-    if (this.chatHistory.length === 0) {
-      console.log(chalk.gray('  Ask me anything about coding...'));
-    } else {
-      this.chatHistory.slice(-10).forEach(msg => {
-        if (msg.role === 'user') {
-          console.log(chalk.cyan(`You: `) + msg.content);
-        } else if (msg.role === 'ai') {
-          console.log(chalk.green(`Teacher: `) + msg.content);
-        }
-        console.log('');
-      });
-    }
-    
-    console.log(chalk.gray('─'.repeat(60)));
-  }
 
   getUpdateIcon(type) {
     const icons = {
@@ -625,350 +551,8 @@ export class UnifiedMonitor {
     return formatted.join('\n');
   }
 
-  generateDiffExplanation(context) {
-    if (!context.diff) return null;
-    
-    const { filename, ext, diff } = context;
-    const addedLines = (diff.match(/^\+[^+]/gm) || []).length;
-    const removedLines = (diff.match(/^-[^-]/gm) || []).length;
-    
-    // Analyze what changed
-    const explanations = [];
-    
-    if (diff.includes('import') || diff.includes('require')) {
-      explanations.push('Added or modified imports/dependencies');
-    }
-    
-    if (diff.includes('function') || diff.includes('=>')) {
-      explanations.push('Function implementation changed');
-    }
-    
-    if (diff.includes('class')) {
-      explanations.push('Class definition modified');
-    }
-    
-    if (diff.includes('if') || diff.includes('else')) {
-      explanations.push('Control flow logic updated');
-    }
-    
-    if (diff.includes('try') || diff.includes('catch')) {
-      explanations.push('Error handling added or modified');
-    }
-    
-    // General summary
-    let summary = `This change modifies ${filename} with ${addedLines} additions and ${removedLines} deletions. `;
-    
-    if (explanations.length > 0) {
-      summary += `Key changes: ${explanations.join(', ')}.`;
-    }
-    
-    // Add teaching moment
-    if (diff.includes('async') || diff.includes('await')) {
-      summary += '\n\n💡 Teaching: This uses async/await for handling asynchronous operations, making the code more readable than callbacks or promise chains.';
-    } else if (diff.includes('const') || diff.includes('let')) {
-      summary += '\n\n💡 Teaching: Using const/let provides block scoping and prevents accidental reassignments, making code more predictable.';
-    }
-    
-    return summary;
-  }
 
-  async handleChatCommand(command) {
-    const cmd = command.toLowerCase();
-    
-    switch (cmd) {
-      case '/help':
-        this.showChatHelp();
-        break;
-      case '/clear':
-        this.chatHistory = [];
-        this.addChatMessage('system', 'Chat history cleared.');
-        break;
-      case '/quit':
-        this.handleExit();
-        break;
-      default:
-        this.addChatMessage('system', `Unknown command: ${command}`);
-    }
-  }
 
-  async handleChatMessage(message) {
-    this.addChatMessage('user', message);
-    
-    // Show typing indicator
-    await this.updateDisplay();
-    console.log(chalk.gray('\nThinking...'));
-    await this.typeWriter.showCursor(500);
-    
-    // Generate AI response
-    const response = await this.generateAIResponse(message);
-    
-    // Clear and update display before typing response
-    await this.updateDisplay();
-    
-    // Type out the AI response
-    console.log(chalk.green('\nTeacher: '));
-    await this.typeWriter.typeOut(response, 'normal');
-    console.log('\n');
-    
-    // Add to history after typing
-    this.addChatMessage('ai', response);
-  }
-
-  async generateAIResponse(message) {
-    const lowerMessage = message.toLowerCase();
-    
-    // Context-aware responses
-    if (this.currentContext) {
-      if (lowerMessage.includes('what changed') || lowerMessage.includes('last change')) {
-        return this.explainLastChange();
-      }
-    }
-    
-    // Concept explanations
-    if (lowerMessage.includes('what is')) {
-      return this.explainConcept(message);
-    }
-    
-    // Code quality questions
-    if (lowerMessage.includes('security') || lowerMessage.includes('safe')) {
-      return await this.checkSecurity();
-    }
-    
-    // Default helpful response
-    return `I can help you with:\n• Recent code changes ("what changed?")\n• Programming concepts ("what is async/await?")\n• Code quality ("any security issues?")\n• Best practices ("how can I improve this?")`;
-  }
-
-  explainLastChange() {
-    if (!this.currentContext) {
-      return "No changes detected yet. Modify a file and I'll explain what changed!";
-    }
-    
-    const { type, filename, diff } = this.currentContext;
-    
-    if (type === 'modified' && diff) {
-      const insights = insightEngine.analyzeChange(this.currentContext);
-      return `File ${filename} was modified.\n${insights}`;
-    }
-    
-    return `File ${filename} was ${type}. Make another change and I'll explain it!`;
-  }
-
-  explainConcept(question) {
-    const concepts = {
-      'async': `🎯 **Async/Await** - The modern way to handle asynchronous operations!
-      
-Think of it like this: You're at a coffee shop. Without async/await, you'd have to stand at the counter until your coffee is ready (blocking). With async/await, you can sit down and work on your laptop (non-blocking) - the barista will call you when it's ready!
-
-\`\`\`javascript
-// Old way (callback hell)
-getData(function(a) {
-  getMoreData(a, function(b) {
-    getMoreData(b, function(c) {
-      console.log(c);
-    });
-  });
-});
-
-// Modern way (async/await)
-const a = await getData();
-const b = await getMoreData(a);
-const c = await getMoreData(b);
-console.log(c);
-\`\`\`
-
-Pro tip: Always wrap await in try-catch for error handling!`,
-      
-      'closure': `🎒 **Closures** - Functions with memory!
-      
-Imagine a function as a backpack. A closure is when that backpack contains not just the function's own stuff, but also remembers variables from where it was created.
-
-\`\`\`javascript
-function createCounter() {
-  let count = 0;  // This variable is "enclosed"
-  
-  return function() {
-    count++;      // Inner function remembers count!
-    return count;
-  };
-}
-
-const counter = createCounter();
-console.log(counter()); // 1
-console.log(counter()); // 2 (It remembers!)
-\`\`\`
-
-Real-world use: React hooks, event handlers, and private variables!`,
-      
-      'promise': `⏳ **Promises** - Handling future values elegantly!
-      
-A Promise is like a food delivery app. When you order (create a promise), you get a tracking number immediately. The food (actual value) comes later, and the app tells you if it arrived successfully or if there was a problem.
-
-\`\`\`javascript
-const myPromise = new Promise((resolve, reject) => {
-  // Async operation here
-  if (success) {
-    resolve(data);  // Order delivered! 
-  } else {
-    reject(error);  // Order failed!
-  }
-});
-
-myPromise
-  .then(data => console.log('Success:', data))
-  .catch(error => console.log('Error:', error));
-\`\`\`
-
-States: Pending → Fulfilled ✅ OR Rejected ❌`,
-      
-      'arrow function': `➡️ **Arrow Functions** - Concise and powerful!
-      
-Arrow functions are the sleek sports cars of JavaScript functions. They're faster to write and automatically inherit 'this' from their surroundings.
-
-\`\`\`javascript
-// Traditional function
-function add(a, b) {
-  return a + b;
-}
-
-// Arrow function
-const add = (a, b) => a + b;
-
-// Great for array methods!
-const doubled = numbers.map(n => n * 2);
-
-// Lexical 'this' binding
-class Timer {
-  constructor() {
-    this.seconds = 0;
-    setInterval(() => {
-      this.seconds++; // 'this' works correctly!
-    }, 1000);
-  }
-}
-\`\`\`
-
-When NOT to use: As methods, constructors, or when you need 'arguments' object.`,
-
-      'hook': `🪝 **React Hooks** - Stateful logic in functional components!
-      
-Hooks let you "hook into" React features without writing a class. They're like special tools that give your functional components superpowers!
-
-\`\`\`javascript
-import { useState, useEffect } from 'react';
-
-function VibeCounter() {
-  // useState hook for state management
-  const [count, setCount] = useState(0);
-  
-  // useEffect hook for side effects
-  useEffect(() => {
-    document.title = \`Vibes: \${count}\`;
-  }, [count]); // Only runs when count changes
-  
-  return (
-    <button onClick={() => setCount(count + 1)}>
-      Increase vibes: {count}
-    </button>
-  );
-}
-\`\`\`
-
-Common hooks: useState, useEffect, useContext, useMemo, useCallback`,
-
-      'state': `🎮 **State Management** - Your app's memory!
-      
-State is like your app's brain - it remembers things! In React, state is data that can change over time and causes your UI to re-render when it does.
-
-\`\`\`javascript
-// Local state (component level)
-const [user, setUser] = useState(null);
-
-// Global state (app level) - Redux example
-const state = {
-  user: { name: 'Vibe Coder', level: 42 },
-  theme: 'dark',
-  notifications: []
-};
-
-// State update triggers re-render
-setUser({ name: 'New Vibe Coder' }); // UI updates!
-\`\`\`
-
-Best practices:
-- Keep state minimal
-- Derive what you can
-- Lift state up when needed
-- Consider context or Redux for global state`
-    };
-    
-    // Check for concept matches
-    for (const [concept, explanation] of Object.entries(concepts)) {
-      if (question.toLowerCase().includes(concept)) {
-        return explanation;
-      }
-    }
-    
-    // Enhanced default response
-    return `🤔 **That's a great question!**
-    
-I can explain many programming concepts with examples:
-• **async/await** - Modern asynchronous programming
-• **promises** - Handling future values
-• **closures** - Functions with memory
-• **arrow functions** - Concise function syntax
-• **hooks** - React's functional superpowers
-• **state** - Managing data that changes
-
-Just ask "what is [concept]?" and I'll break it down with real examples!`;
-  }
-
-  async checkSecurity() {
-    if (!this.currentContext || !this.currentContext.content) {
-      return "No recent file changes to analyze. Modify a file and I'll check it for security issues!";
-    }
-    
-    const checkResult = await this.rulesChecker.checkFile(
-      this.currentContext.filePath,
-      this.currentContext.content
-    );
-    
-    if (checkResult.violations.length > 0) {
-      const critical = checkResult.violations.filter(v => v.severity === 'critical');
-      if (critical.length > 0) {
-        return `⚠️ Found ${critical.length} security issues in ${this.currentContext.filename}:\n${critical.map(v => `• ${v.message}`).join('\n')}`;
-      }
-    }
-    
-    return `✅ No major security issues found in ${this.currentContext.filename}. Keep up the good work!`;
-  }
-
-  addChatMessage(role, content) {
-    this.chatHistory.push({
-      role,
-      content,
-      timestamp: new Date().toLocaleTimeString()
-    });
-    
-    if (this.chatHistory.length > 50) {
-      this.chatHistory.shift();
-    }
-  }
-
-  showChatHelp() {
-    const help = `
-${chalk.bold.yellow('💬 Chat Commands:')}
-/help - Show this help
-/clear - Clear chat history
-/quit - Exit
-
-${chalk.bold.yellow('🎯 You can ask about:')}
-• Recent changes: "What changed?"
-• Concepts: "What is async/await?"
-• Security: "Any security issues?"
-• Best practices: "How can I improve this?"`;
-    
-    this.addChatMessage('system', help);
-  }
 
   async displayThemeMode() {
     const colors = themeManager.getColors();
