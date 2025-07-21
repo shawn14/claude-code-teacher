@@ -157,35 +157,43 @@ export class InsightEngine {
     return output;
   }
   
-  // Optimized mode - token-efficient analysis
+  // Optimized mode - token-efficient analysis with mentoring
   optimizedAnalysis(context) {
-    const { diff, filename } = context;
+    const { diff, filename, type } = context;
     const colors = themeManager.getColors();
     const added = (diff.match(/^\+[^+]/gm) || []).length;
     const removed = (diff.match(/^-[^-]/gm) || []).length;
     
     let output = '';
     
-    // Compact header
-    output += colors.primary(`\n📊 ${added}+ ${removed}- in ${filename}\n`);
-    
-    // Key changes only
-    const keyChanges = this.identifyKeyChanges(diff);
-    if (keyChanges.length > 0) {
-      output += colors.accent('\n🔍 Changes:\n');
-      keyChanges.forEach(change => {
-        output += `   ${change}\n`;
-      });
+    // Change summary with context
+    const changeType = type === 'modified' ? 'Modified' : type === 'added' ? 'Created' : 'Deleted';
+    output += colors.primary(`\n📊 ${changeType}: ${filename}`);
+    if (type === 'modified') {
+      output += colors.muted(` (${added} additions, ${removed} deletions)\n`);
+    } else {
+      output += '\n';
     }
     
-    // Concise insights
+    // Analyze the actual changes and provide mentoring
+    if (diff) {
+      const mentoring = this.generateMentoringExplanation(context);
+      if (mentoring) {
+        output += colors.accent('\n🎓 Mentoring Insights:\n');
+        output += mentoring;
+      }
+    }
+    
+    // Key patterns detected
     const patterns = this.detectPatterns(context);
-    const insights = this.generateOptimizedInsights(patterns, context);
-    if (insights.length > 0) {
-      output += colors.secondary('\n💡 Tips:\n');
-      insights.forEach(insight => {
-        output += `   ${insight}\n`;
-      });
+    if (patterns.length > 0) {
+      const insights = this.generateOptimizedInsights(patterns, context);
+      if (insights.length > 0) {
+        output += colors.secondary('\n💡 Best Practices:\n');
+        insights.forEach(insight => {
+          output += `   ${insight}\n`;
+        });
+      }
     }
     
     return output;
@@ -404,6 +412,138 @@ export class InsightEngine {
     }
     
     return insights.slice(0, this.configs.optimized.maxInsights);
+  }
+  
+  generateMentoringExplanation(context) {
+    const { diff, filename, ext } = context;
+    const colors = themeManager.getColors();
+    let explanation = '';
+    
+    // Analyze what type of changes were made
+    const lines = diff.split('\n');
+    const addedLines = lines.filter(l => l.startsWith('+') && !l.startsWith('+++'));
+    const removedLines = lines.filter(l => l.startsWith('-') && !l.startsWith('---'));
+    
+    // Look for specific patterns in the changes
+    const changedCode = [...addedLines, ...removedLines].map(l => l.substring(1)).join('\n');
+    
+    // Function changes
+    if (changedCode.match(/function|const.*=.*\(|=>|class/)) {
+      const isNewFunction = addedLines.some(l => l.match(/function|const.*=.*\(|=>/));
+      const isModifiedFunction = removedLines.some(l => l.match(/function|const.*=.*\(|=>/));
+      
+      if (isNewFunction && !isModifiedFunction) {
+        explanation += colors.info('   📝 New function/method added\n');
+        explanation += colors.muted('      This introduces new functionality. Consider:\n');
+        explanation += colors.muted('      • Does it have clear, descriptive naming?\n');
+        explanation += colors.muted('      • Are parameters validated?\n');
+        explanation += colors.muted('      • Is error handling in place?\n');
+      } else if (isModifiedFunction) {
+        explanation += colors.info('   ✏️ Function implementation changed\n');
+        explanation += colors.muted('      When modifying functions:\n');
+        explanation += colors.muted('      • Ensure backward compatibility\n');
+        explanation += colors.muted('      • Update tests if behavior changed\n');
+        explanation += colors.muted('      • Check all callers still work correctly\n');
+      }
+    }
+    
+    // Import/dependency changes
+    if (changedCode.match(/import|require/)) {
+      const newImports = addedLines.filter(l => l.match(/import|require/));
+      const removedImports = removedLines.filter(l => l.match(/import|require/));
+      
+      if (newImports.length > removedImports.length) {
+        explanation += colors.info('   📦 New dependencies added\n');
+        explanation += colors.muted('      • Verify the package is from a trusted source\n');
+        explanation += colors.muted('      • Check bundle size impact\n');
+        explanation += colors.muted('      • Consider if native solutions exist\n');
+      } else if (removedImports.length > 0) {
+        explanation += colors.success('   🧹 Dependencies cleaned up\n');
+        explanation += colors.muted('      Good practice! Removing unused imports:\n');
+        explanation += colors.muted('      • Reduces bundle size\n');
+        explanation += colors.muted('      • Improves code clarity\n');
+      }
+    }
+    
+    // State management changes
+    if (changedCode.match(/setState|useState|state\s*=/)) {
+      explanation += colors.info('   🔄 State management modified\n');
+      explanation += colors.muted('      State changes can cause re-renders:\n');
+      explanation += colors.muted('      • Batch state updates when possible\n');
+      explanation += colors.muted('      • Consider using useReducer for complex state\n');
+      explanation += colors.muted('      • Verify dependent components handle changes\n');
+    }
+    
+    // API/Network changes
+    if (changedCode.match(/fetch|axios|api|http/i)) {
+      explanation += colors.warning('   🌐 Network/API code modified\n');
+      explanation += colors.muted('      Critical areas to check:\n');
+      explanation += colors.muted('      • Error handling for network failures\n');
+      explanation += colors.muted('      • Loading states for better UX\n');
+      explanation += colors.muted('      • Response validation\n');
+      explanation += colors.muted('      • Authentication headers if needed\n');
+    }
+    
+    // Security-sensitive changes
+    if (changedCode.match(/password|token|key|secret|auth/i)) {
+      explanation += colors.error('   🔐 Security-sensitive code modified\n');
+      explanation += colors.muted('      Security checklist:\n');
+      explanation += colors.muted('      • Never log sensitive data\n');
+      explanation += colors.muted('      • Use environment variables for secrets\n');
+      explanation += colors.muted('      • Validate and sanitize all inputs\n');
+      explanation += colors.muted('      • Use HTTPS for sensitive operations\n');
+    }
+    
+    // Testing changes
+    if (filename.match(/test|spec/) || changedCode.match(/test|expect|describe|it\(/)) {
+      explanation += colors.success('   🧪 Test coverage modified\n');
+      explanation += colors.muted('      Excellent! Testing best practices:\n');
+      explanation += colors.muted('      • Test behavior, not implementation\n');
+      explanation += colors.muted('      • Include edge cases\n');
+      explanation += colors.muted('      • Keep tests focused and isolated\n');
+    }
+    
+    // Performance-related changes
+    if (changedCode.match(/useMemo|useCallback|memo|lazy|Suspense/)) {
+      explanation += colors.accent('   ⚡ Performance optimization detected\n');
+      explanation += colors.muted('      Performance considerations:\n');
+      explanation += colors.muted('      • Measure before and after\n');
+      explanation += colors.muted('      • Don\'t optimize prematurely\n');
+      explanation += colors.muted('      • Consider trade-offs (memory vs speed)\n');
+    }
+    
+    // If no specific patterns found, provide general guidance
+    if (!explanation) {
+      const category = this.detectChangeCategory(context);
+      const categoryInfo = this.getCategoryInfo(category);
+      
+      explanation += colors.info(`   ${categoryInfo.icon} ${categoryInfo.label} detected\n`);
+      explanation += colors.muted('      General tips for this change:\n');
+      
+      switch (category) {
+        case 'feature':
+          explanation += colors.muted('      • Write tests for new functionality\n');
+          explanation += colors.muted('      • Update documentation\n');
+          explanation += colors.muted('      • Consider edge cases\n');
+          break;
+        case 'fix':
+          explanation += colors.muted('      • Add regression tests\n');
+          explanation += colors.muted('      • Verify the root cause is addressed\n');
+          explanation += colors.muted('      • Check for similar issues elsewhere\n');
+          break;
+        case 'refactor':
+          explanation += colors.muted('      • Ensure behavior remains unchanged\n');
+          explanation += colors.muted('      • Run existing tests\n');
+          explanation += colors.muted('      • Improve code readability\n');
+          break;
+        default:
+          explanation += colors.muted('      • Follow project conventions\n');
+          explanation += colors.muted('      • Keep changes focused\n');
+          explanation += colors.muted('      • Test thoroughly\n');
+      }
+    }
+    
+    return explanation;
   }
 }
 

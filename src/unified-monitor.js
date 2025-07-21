@@ -464,11 +464,13 @@ export class UnifiedMonitor {
       console.log(chalk.bold('═'.repeat(50)));
       
       const icon = latestUpdate.type === 'added' ? '✅' : latestUpdate.type === 'modified' ? '📝' : '🗑️';
-      console.log(`${icon} ${latestUpdate.filename}`);
+      console.log(`${icon} ${colors.highlight(latestUpdate.filename)}`);
       
       if (latestUpdate.context.diff) {
-        console.log('\n' + chalk.bold('Changes:'));
+        console.log('\n' + colors.secondary('📝 Code Changes:'));
+        console.log(colors.muted('─'.repeat(50)));
         console.log(this.formatDiff(latestUpdate.context.diff));
+        console.log(colors.muted('─'.repeat(50)));
         
         // Type out insights for the latest update
         const insights = insightEngine.analyzeChange(latestUpdate.context);
@@ -585,23 +587,39 @@ export class UnifiedMonitor {
     const lines = diff.split('\n');
     const formatted = [];
     let showCount = 0;
+    let inHunk = false;
+    let contextLines = [];
     
-    lines.forEach(line => {
-      if (showCount > 20) return;
+    lines.forEach((line, index) => {
+      if (showCount > 30) return;
       
-      if (line.startsWith('+') && !line.startsWith('+++')) {
+      if (line.startsWith('@@')) {
+        // Hunk header - shows line numbers
+        formatted.push(chalk.cyan(line));
+        inHunk = true;
+        contextLines = [];
+      } else if (line.startsWith('+') && !line.startsWith('+++')) {
+        // Added line
         formatted.push(chalk.green(line));
         showCount++;
       } else if (line.startsWith('-') && !line.startsWith('---')) {
+        // Removed line
         formatted.push(chalk.red(line));
         showCount++;
-      } else if (line.startsWith('@@')) {
-        formatted.push(chalk.blue(line));
+      } else if (line.startsWith('diff --git')) {
+        // File header
+        formatted.push(chalk.yellow(line));
+      } else if (inHunk && !line.startsWith('+') && !line.startsWith('-')) {
+        // Context line in hunk
+        if (contextLines.length < 2) {
+          formatted.push(chalk.gray(line));
+          contextLines.push(line);
+        }
       }
     });
     
-    if (showCount > 20) {
-      formatted.push(chalk.gray('... (diff truncated)'));
+    if (showCount > 30) {
+      formatted.push(chalk.gray('\n... (diff truncated for readability)'));
     }
     
     return formatted.join('\n');
@@ -1049,10 +1067,12 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
     console.log(`${icon} ${colors.primary(update.filename)}`);
     
     if (update.context.diff) {
-      console.log('\n' + colors.secondary('Changes:'));
+      console.log('\n' + colors.secondary('📝 Code Changes:'));
+      console.log(colors.muted('─'.repeat(50)));
       console.log(this.formatDiff(update.context.diff));
+      console.log(colors.muted('─'.repeat(50)));
       
-      // Get insights
+      // Get insights with mentoring
       const insights = insightEngine.analyzeChange(update.context);
       
       if (insights) {
@@ -1063,19 +1083,8 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
         }
       }
       
-      // Get analysis from unified engine
-      const analysis = insightEngine.analyzeChange(update.context);
-      
-      if (analysis) {
-        if (withAnimation) {
-          await this.typeWriter.typeOut(analysis, 'normal');
-        } else {
-          console.log(analysis);
-        }
-      }
-      
       // Show token usage stats
-      const stats = tokenAnalyzer.analyzeOutput(analysis);
+      const stats = tokenAnalyzer.analyzeOutput(insights);
       const tokenStats = tokenAnalyzer.formatStats(stats, 'Insight');
       console.log(tokenStats);
       
@@ -1086,7 +1095,7 @@ ${chalk.bold.yellow('🎯 You can ask about:')}
         const detailedAnalysis = insightEngine.analyzeChange(update.context);
         insightEngine.setMode(currentMode);
         
-        const comparison = tokenAnalyzer.compareOutputs(detailedAnalysis, analysis);
+        const comparison = tokenAnalyzer.compareOutputs(detailedAnalysis, insights);
         if (comparison.savings.percentage > 0) {
           console.log(colors.success(`   💰 Token savings: ${comparison.savings.tokens} tokens (${comparison.savings.percentage}% reduction)\n`));
         }
